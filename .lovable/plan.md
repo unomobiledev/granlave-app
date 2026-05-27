@@ -1,42 +1,58 @@
+
 ## Objetivo
-1. Criar um cliente HTTP único para a API UNO ERP que lê o token do `localStorage` (chave `token`) e envia automaticamente como `Authorization: Bearer <token>` em toda chamada.
-2. Buscar e exibir as últimas 10 OSs na home (`/`) usando esse cliente.
+
+Usar uma variável de ambiente `VITE_UNO_DEV_TOKEN` como fonte do token durante o desenvolvimento, mantendo o código **pronto para o deploy dentro do UNO**: em produção o token virá do `localStorage` e a variável de ambiente fica vazia / removida, sem precisar mexer no código.
+
+## Estratégia
+
+`getUnoToken()` passa a ter ordem de prioridade:
+1. `localStorage.getItem("token")` — caminho oficial, que será o único usado quando a app rodar embarcada no UNO.
+2. Fallback: `import.meta.env.VITE_UNO_DEV_TOKEN` — só popula em dev.
+
+Assim, no dia do deploy, basta a variável estar ausente (ou vazia) e o comportamento volta a ser "lê do localStorage", exatamente como pedido. Nenhum `if (DEV)` condicional — a precedência natural já garante isso.
 
 ## Arquivos
 
-### 1. `src/lib/uno/client.ts` — cliente fetch client-side
-- Constante `UNO_API_BASE_URL = "http://192.168.1.19:8080/unoerp-api/"`.
-- `getUnoToken()`: lê `localStorage.getItem("token")` com guarda `typeof window !== "undefined"` (não quebra SSR).
-- `unoFetch<T>(path, init?)`:
-  - Resolve URL relativa à base.
-  - Lê token; se ausente → lança `Error("Unauthorized (401): token ausente no localStorage")`.
-  - Mescla headers: `Authorization: Bearer <token>`, `Content-Type: application/json` (quando há body e o caller não definiu), mais headers passados pelo caller.
-  - Em resposta não-ok, lança erro com status e corpo.
-  - Retorna `response.json()` tipado.
-- Helpers: `unoGet<T>`, `unoPost<T>`, `unoPut<T>`, `unoDelete<T>`.
-
-### 2. `src/lib/uno/os.ts` — endpoints de OS
-- `type OS = { id: ...; numero: ...; ... }` (tipagem mínima/flexível, campos opcionais — refinamos depois conforme o payload real).
-- `listarUltimasOS(limit = 10)`:
+### 1. `src/lib/uno/client.ts` (editar)
+- Atualizar `getUnoToken()`:
   ```ts
-  return unoGet<{ content: OS[]; totalElements?: number }>(
-    `servico/osq0001?page=0&requiresCounts=true&size=${limit}`
-  );
+  export function getUnoToken(): string | null {
+    if (typeof window !== "undefined") {
+      const fromStorage = window.localStorage.getItem("token");
+      if (fromStorage) return fromStorage;
+    }
+    const fromEnv = import.meta.env.VITE_UNO_DEV_TOKEN as string | undefined;
+    return fromEnv && fromEnv.length > 0 ? fromEnv : null;
+  }
   ```
-  Retorna o envelope paginado típico do Spring (`content`, `totalElements`).
+- Mantém `unoFetch` e o erro 401 imediato sem mudanças.
 
-### 3. `src/routes/index.tsx` — listagem na home
-- `useQuery({ queryKey: ["uno", "os", "ultimas", 10], queryFn: () => listarUltimasOS(10) })`.
-- Estados: loading (skeleton), erro (mensagem + botão "Tentar novamente"), vazio ("Nenhuma OS encontrada").
-- Sucesso: tabela com as 10 últimas OSs usando `Table` do shadcn. Colunas iniciais: nº, data, cliente, situação (renderizadas de forma defensiva — se o campo não existir mostra `—`). Ajustamos os nomes exatos após ver o primeiro retorno real.
+### 2. `src/vite-env.d.ts` (criar/ajustar)
+- Tipar `VITE_UNO_DEV_TOKEN` para não dar erro de TS:
+  ```ts
+  /// <reference types="vite/client" />
+  interface ImportMetaEnv {
+    readonly VITE_UNO_DEV_TOKEN?: string;
+  }
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+  ```
+  (Se o arquivo já existe, só adiciona o campo.)
 
-## Decisões
-- **Chamada client-side direta** ao UNO, sem proxy. O token já vive no `localStorage` do browser.
-- **URL como constante** no `client.ts` (não secret). Migra para `VITE_UNO_API_BASE_URL` se precisar variar por ambiente.
-- **Sem token → 401 imediato** (lançado antes do fetch), conforme escolhido.
-- **Sem refresh automático** do `refreshToken` nesta etapa.
-- **TanStack Query** para a listagem (já presente no projeto), cache automático e retry desabilitado para erros 401.
+### 3. Secret no Lovable
+- Adicionar `VITE_UNO_DEV_TOKEN` via `add_secret` (o usuário cola o JWT no formulário seguro).
+- Importante avisar:
+  - Por ter prefixo `VITE_`, o valor **vai parar no bundle do client** — não é segredo real, é só conveniência de dev.
+  - JWT do UNO **expira**; quando expirar, atualizar via `update_secret` (gera novo build).
+
+## Caminho até o deploy (sem mudança de código)
+
+1. Antes do deploy embarcado no UNO: remover o secret `VITE_UNO_DEV_TOKEN` (ou deixar vazio).
+2. A app passa a ler exclusivamente `localStorage.getItem("token")`, populado pela origem onde estiver servida.
+3. Nenhuma alteração em `client.ts`, `os.ts` ou rotas.
 
 ## Observações
-- Possível **mixed content** (HTTPS → HTTP `192.168.1.19`) e **CORS** se o UNO não liberar a origem do preview. São limites do servidor UNO; aparecerão como erro de rede. Solução, se ocorrer: trocar para proxy via server function — alteração isolada ao `client.ts`.
-- Os nomes das colunas/campos da OS serão ajustados após a primeira resposta real, já que não temos o schema documentado aqui.
+
+- Continuamos sem proxy server-side; chamada direta do browser ao `http://192.168.1.19:8080`. Mixed content / CORS seguem como limites do servidor UNO.
+- Se mais tarde quisermos trocar para `postMessage` do UNO → iframe, a mudança fica isolada em `getUnoToken()`.
