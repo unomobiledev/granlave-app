@@ -10,6 +10,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { UnoFrame } from "@/components/UnoFrame";
+import { UnoDevTokenBootstrap } from "@/components/UnoDevTokenBootstrap";
 
 function NotFoundComponent() {
   return (
@@ -118,6 +119,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <UnoDevTokenBootstrap />
       <UnoFrame>
         <Outlet />
       </UnoFrame>
