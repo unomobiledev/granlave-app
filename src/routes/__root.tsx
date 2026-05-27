@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { UnoFrame } from "@/components/UnoFrame";
 
 function NotFoundComponent() {
   return (
@@ -73,13 +74,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { name: "description", content: "Truck Tank Cleaner is a system for managing truck tank cleaning processes." },
       { name: "author", content: "Lovable" },
       { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:description", content: "Truck Tank Cleaner is a system for managing truck tank cleaning processes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Lovable App" },
+      { name: "twitter:description", content: "Truck Tank Cleaner is a system for managing truck tank cleaning processes." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d045de28-942a-4061-88f1-adc248e9f322/id-preview-20b3a8be--03904998-dcbf-448b-827c-c52e2c2a22c6.lovable.app-1779387396498.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d045de28-942a-4061-88f1-adc248e9f322/id-preview-20b3a8be--03904998-dcbf-448b-827c-c52e2c2a22c6.lovable.app-1779387396498.png" },
     ],
     links: [
       {
@@ -113,8 +118,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <UnoFrame>
+        <Outlet />
+      </UnoFrame>
     </QueryClientProvider>
   );
 }

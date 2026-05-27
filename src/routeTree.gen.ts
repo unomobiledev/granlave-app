@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CaminhaoTruckIdRouteImport } from './routes/caminhao.$truckId'
+import { Route as EtapaStageIdTruckIdRouteImport } from './routes/etapa.$stageId.$truckId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CaminhaoTruckIdRoute = CaminhaoTruckIdRouteImport.update({
+  id: '/caminhao/$truckId',
+  path: '/caminhao/$truckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EtapaStageIdTruckIdRoute = EtapaStageIdTruckIdRouteImport.update({
+  id: '/etapa/$stageId/$truckId',
+  path: '/etapa/$stageId/$truckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
+  '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
+  '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
+  '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/caminhao/$truckId' | '/etapa/$stageId/$truckId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/caminhao/$truckId' | '/etapa/$stageId/$truckId'
+  id: '__root__' | '/' | '/caminhao/$truckId' | '/etapa/$stageId/$truckId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CaminhaoTruckIdRoute: typeof CaminhaoTruckIdRoute
+  EtapaStageIdTruckIdRoute: typeof EtapaStageIdTruckIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/caminhao/$truckId': {
+      id: '/caminhao/$truckId'
+      path: '/caminhao/$truckId'
+      fullPath: '/caminhao/$truckId'
+      preLoaderRoute: typeof CaminhaoTruckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/etapa/$stageId/$truckId': {
+      id: '/etapa/$stageId/$truckId'
+      path: '/etapa/$stageId/$truckId'
+      fullPath: '/etapa/$stageId/$truckId'
+      preLoaderRoute: typeof EtapaStageIdTruckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CaminhaoTruckIdRoute: CaminhaoTruckIdRoute,
+  EtapaStageIdTruckIdRoute: EtapaStageIdTruckIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
