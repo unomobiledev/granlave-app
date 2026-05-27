@@ -1,8 +1,12 @@
 const UNO_API_BASE_URL = "http://192.168.1.19:8080/unoerp-api/";
 
 export function getUnoToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem("token");
+  if (typeof window !== "undefined") {
+    const fromStorage = window.localStorage.getItem("token");
+    if (fromStorage) return fromStorage;
+  }
+  const fromEnv = import.meta.env.VITE_UNO_DEV_TOKEN as string | undefined;
+  return fromEnv && fromEnv.length > 0 ? fromEnv : null;
 }
 
 function buildUrl(path: string): string {
