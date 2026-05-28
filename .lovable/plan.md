@@ -1,80 +1,61 @@
-# Corrigir tela branca no iframe do UNO
+# Corrigir `crypto.randomUUID is not a function`
 
-## Causa raiz
+## Contexto
 
-O UNO injeta no iframe URLs como `https://granlave-app.lovable.app/&1` (confirmado: `<iframe id="uno-iframe" src=".../&1">`).
+Com a tela branca resolvida (redirect 302), o app carrega dentro do iframe do UNO. Surgem dois novos erros no console:
 
-A correção anterior em `src/server.ts` (`normalizeRequest`) faz **rewrite silencioso** dessas URLs para `/` antes do TanStack rotear. Resultado:
+1. `TypeError: crypto.randomUUID is not a function` — em `seedMock` (chamado pelo `AppHeader`).
+2. `Access to fetch ... blocked by CORS policy: ... more-private address space 'local'` — bloqueio de Private Network Access (PNA) do Chrome ao chamar `http://192.168.1.19:8080` a partir de `https://granlave-app.lovable.app`.
 
-- Servidor responde **200** com o HTML SSR da home (verificado via curl).
-- **Mas a URL na barra do navegador continua `/&1`**.
-- Na hidratação, o TanStack Router compara a árvore SSR (gerada para `/`) com a rota do cliente (`/&1` — que não casa com nenhuma rota) → falha silenciosa → **tela branca** dentro do iframe.
+**O erro #2 não vai ser tratado neste plano.** Confirmamos que é uma restrição do navegador que só ocorre porque o UNO de dev está em IP privado + HTTP. Em produção, com o UNO em um domínio público HTTPS (ex.: `https://erp.granlave.com.br`) e com os headers CORS corretos no UNO, o problema desaparece sozinho. Não há código nosso para mudar.
 
-Acessando direto em uma aba (URL `/` pura, sem `&1`) funciona normal — o que confirma que o app está OK e o bug é só na combinação rewrite + hidratação com URL "estranha".
+Este plano resolve apenas o erro #1.
+
+## Causa raiz do #1
+
+`crypto.randomUUID()` (Web Crypto API) só está disponível em **secure contexts** segundo a spec. Quando nosso app HTTPS é embedado em um iframe cujo top-level é `http://192.168.1.19:8080` (HTTP + IP privado), o `window.isSecureContext` do iframe vira `false` e a função `crypto.randomUUID` não é exposta.
+
+O código que chama está no `seedMock` (usado pelo `AppHeader`) — provavelmente em `src/store/trucks.ts` ou similar, para gerar IDs de caminhões/etapas mockados.
 
 ## Solução
 
-Trocar o **rewrite** por um **redirect HTTP 302** para `/`. Assim o navegador atualiza a URL real para `/`, o iframe recarrega em `/` limpo, a hidratação bate e o app renderiza.
+Criar um helper `safeRandomUUID()` em `src/lib/utils.ts` (ou novo arquivo `src/lib/uuid.ts`) que:
 
-## Mudanças
-
-### `src/server.ts`
-
-Substituir a função `normalizeRequest(request)` (que retorna uma `Request` reescrita) por uma checagem que, quando o pathname não casa com a allowlist, retorna direto uma `Response` 302:
+1. Usa `crypto.randomUUID()` quando disponível.
+2. Faz fallback para uma implementação baseada em `crypto.getRandomValues()` (que existe mesmo em contextos inseguros na maioria dos navegadores modernos) gerando um UUID v4.
+3. Último fallback: `Math.random()` (não-criptográfico, mas suficiente para IDs de mock).
 
 ```ts
-function maybeRedirectUnknownPath(request: Request): Response | undefined {
-  let url: URL;
-  try { url = new URL(request.url); } catch { return undefined; }
-
-  // Só GET/HEAD — outros métodos seguem normal
-  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
-
-  if (KNOWN_PATH_PATTERNS.some((re) => re.test(url.pathname))) return undefined;
-
-  // Redirect 302 para a raiz preservando search se existir
-  const target = new URL("/", url.origin);
-  return new Response(null, {
-    status: 302,
-    headers: { Location: target.toString(), "Cache-Control": "no-store" },
+// src/lib/uuid.ts
+export function safeRandomUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback: UUID v4 com getRandomValues
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
+  }
+  // Último fallback: Math.random (não criptográfico)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
 ```
 
-No `fetch` do `export default`, chamar antes do `handler.fetch`:
+## Mudanças
 
-```ts
-export default {
-  async fetch(request, env, ctx) {
-    const redirect = maybeRedirectUnknownPath(request);
-    if (redirect) return redirect;
-    try {
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
-    } catch (error) {
-      console.error(error);
-      return brandedErrorResponse();
-    }
-  },
-};
-```
-
-Remover a função antiga `normalizeRequest` e a chamada correspondente.
-
-### `.lovable/plan.md`
-
-Atualizar a seção "Solução" do plano antigo explicando a mudança de rewrite → redirect e o motivo (hidratação cliente).
+1. **Criar** `src/lib/uuid.ts` com o `safeRandomUUID()` acima.
+2. **Localizar** todos os usos de `crypto.randomUUID()` no projeto (`rg -n "crypto\.randomUUID"` em `src/`) — pelo trace o principal está em `src/store/trucks.ts` (função `seedMock` e provavelmente outras).
+3. **Substituir** cada `crypto.randomUUID()` por `safeRandomUUID()` com o import correspondente.
 
 ## Validação
 
-1. `curl -sI "https://granlave-app.lovable.app/&1"` → deve retornar **302** com `Location: https://granlave-app.lovable.app/`.
-2. Abrir o UNO → iframe deve seguir o redirect para `/` e renderizar a home normalmente.
-3. `curl -sI https://granlave-app.lovable.app/` continua 200 (rota válida não redireciona).
-4. `curl -sI https://granlave-app.lovable.app/caminhao/abc` continua 200.
-
-## Por que não outras abordagens
-
-- **Manter rewrite + tentar consertar hidratação**: o router cliente não tem como adivinhar que `/&1` deveria casar com `/` — seria necessário replicar a allowlist no cliente também, dobrando complexidade.
-- **Rota splat `$.tsx` que faz `<Navigate to="/" />`**: funcionaria mas atrasa a renderização (precisa baixar JS, hidratar, navegar). Redirect HTTP é instantâneo.
-- **Pedir ao time do UNO para corrigir o iframe**: fora do nosso controle.
+1. Após publicar, abrir o iframe dentro do UNO → não deve mais aparecer `TypeError: crypto.randomUUID is not a function`.
+2. Os caminhões mockados devem aparecer normalmente (o `seedMock` rodando até o fim significa que IDs foram gerados).
+3. O erro de PNA continuará aparecendo até o UNO migrar para domínio público HTTPS — **isso é esperado** e não é nosso para corrigir.
