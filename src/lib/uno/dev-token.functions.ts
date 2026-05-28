@@ -6,6 +6,6 @@ import { createServerFn } from "@tanstack/react-start";
  * e o token é lido direto do `localStorage` da origem do ERP.
  */
 export const getUnoDevToken = createServerFn({ method: "GET" }).handler(async () => {
-  const token = process.env.UNO_DEV_TOKEN;
+  const token = process.env.VITE_UNO_DEV_TOKEN ?? process.env.UNO_DEV_TOKEN;
   return { token: token && token.length > 0 ? token : null };
 });
