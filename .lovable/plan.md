@@ -1,61 +1,58 @@
-# Corrigir `crypto.randomUUID is not a function`
 
-## Contexto
+## Objetivo
 
-Com a tela branca resolvida (redirect 302), o app carrega dentro do iframe do UNO. Surgem dois novos erros no console:
+Fazer a chamada às OSs funcionar quando o app roda dentro do UNO HTTPS (ex.: `https://prata14.unoerp.com.br/granlave-web/` → API em `https://prata14.unoerp.com.br/granlave-api/`), sem hardcode do IP local.
 
-1. `TypeError: crypto.randomUUID is not a function` — em `seedMock` (chamado pelo `AppHeader`).
-2. `Access to fetch ... blocked by CORS policy: ... more-private address space 'local'` — bloqueio de Private Network Access (PNA) do Chrome ao chamar `http://192.168.1.19:8080` a partir de `https://granlave-app.lovable.app`.
+Observação importante do curl: o path da API **não** é `/unoerp-api/` — é `/granlave-api/`. Cada instalação UNO usa um nome diferente (granlave-api, unoerp-api, etc.), então o segmento precisa ser configurável.
 
-**O erro #2 não vai ser tratado neste plano.** Confirmamos que é uma restrição do navegador que só ocorre porque o UNO de dev está em IP privado + HTTP. Em produção, com o UNO em um domínio público HTTPS (ex.: `https://erp.granlave.com.br`) e com os headers CORS corretos no UNO, o problema desaparece sozinho. Não há código nosso para mudar.
+## Estratégia de resolução da base URL (ordem)
 
-Este plano resolve apenas o erro #1.
+1. **Query string** `?api=<url-completa>` — override explícito p/ debug.
+2. **Origem do iframe pai** via `document.referrer` (ou `window.location.ancestorOrigins[0]`) + segmento de API. Como o referrer no exemplo é `https://prata14.unoerp.com.br/granlave-web/`, derivamos `https://prata14.unoerp.com.br/granlave-api/`.
+3. **Env var** `VITE_UNO_API_BASE_URL` (build-time fallback).
+4. **Default dev** `http://192.168.1.19:8080/unoerp-api/` (só quando rodando em localhost).
 
-## Causa raiz do #1
+O **segmento da API** (`granlave-api` vs `unoerp-api` vs ...) também é configurável:
+- Query `?apiPath=granlave-api`
+- Heurística: substituir `-web` por `-api` no primeiro segmento do path do referrer (ex.: `/granlave-web/` → `/granlave-api/`). Cobre o padrão UNO atual.
+- Env var `VITE_UNO_API_PATH` (default `unoerp-api`).
 
-`crypto.randomUUID()` (Web Crypto API) só está disponível em **secure contexts** segundo a spec. Quando nosso app HTTPS é embedado em um iframe cujo top-level é `http://192.168.1.19:8080` (HTTP + IP privado), o `window.isSecureContext` do iframe vira `false` e a função `crypto.randomUUID` não é exposta.
-
-O código que chama está no `seedMock` (usado pelo `AppHeader`) — provavelmente em `src/store/trucks.ts` ou similar, para gerar IDs de caminhões/etapas mockados.
-
-## Solução
-
-Criar um helper `safeRandomUUID()` em `src/lib/utils.ts` (ou novo arquivo `src/lib/uuid.ts`) que:
-
-1. Usa `crypto.randomUUID()` quando disponível.
-2. Faz fallback para uma implementação baseada em `crypto.getRandomValues()` (que existe mesmo em contextos inseguros na maioria dos navegadores modernos) gerando um UUID v4.
-3. Último fallback: `Math.random()` (não-criptográfico, mas suficiente para IDs de mock).
-
-```ts
-// src/lib/uuid.ts
-export function safeRandomUUID(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  // Fallback: UUID v4 com getRandomValues
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-    const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
-    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
-    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
-  }
-  // Último fallback: Math.random (não criptográfico)
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
-```
+Resultado em cache em `sessionStorage` (`uno:apiBase`) para evitar recomputar.
 
 ## Mudanças
 
-1. **Criar** `src/lib/uuid.ts` com o `safeRandomUUID()` acima.
-2. **Localizar** todos os usos de `crypto.randomUUID()` no projeto (`rg -n "crypto\.randomUUID"` em `src/`) — pelo trace o principal está em `src/store/trucks.ts` (função `seedMock` e provavelmente outras).
-3. **Substituir** cada `crypto.randomUUID()` por `safeRandomUUID()` com o import correspondente.
+### Novo arquivo `src/lib/uno/api-base.ts`
+- `resolveUnoApiBaseUrl(): string`
+- `setUnoApiBaseUrlOverride(url: string | null): void` (debug)
+- Lógica:
+  1. Se `?api=` na URL → usa e cacheia.
+  2. Se `sessionStorage['uno:apiBase']` → usa.
+  3. Se `document.referrer` tem origem diferente de `window.location.origin` e é http(s) → `${referrerOrigin}/${apiPath}/` onde `apiPath` vem de `?apiPath`, ou da heurística `*-web → *-api` aplicada ao primeiro segmento do referrer, ou `VITE_UNO_API_PATH`, ou `unoerp-api`.
+  4. Senão, `VITE_UNO_API_BASE_URL`.
+  5. Senão, default dev `http://192.168.1.19:8080/unoerp-api/`.
+
+### `src/lib/uno/client.ts`
+- Remove a const `UNO_API_BASE_URL` hardcoded.
+- `buildUrl()` passa a chamar `resolveUnoApiBaseUrl()`.
+- Mantém token via `localStorage.token`, `Authorization: Bearer ...`.
+
+### `src/components/UnoDevTokenBootstrap.tsx`
+- Mostrar o `apiBase` resolvido no painel de debug.
+- Botão "Resetar apiBase" (limpa `sessionStorage['uno:apiBase']`).
+- Campo para override manual (chama `setUnoApiBaseUrlOverride`).
 
 ## Validação
 
-1. Após publicar, abrir o iframe dentro do UNO → não deve mais aparecer `TypeError: crypto.randomUUID is not a function`.
-2. Os caminhões mockados devem aparecer normalmente (o `seedMock` rodando até o fim significa que IDs foram gerados).
-3. O erro de PNA continuará aparecendo até o UNO migrar para domínio público HTTPS — **isso é esperado** e não é nosso para corrigir.
+- Acesso direto: `https://granlave-app.lovable.app/?api=https://prata14.unoerp.com.br/granlave-api` → deve listar OSs (depende de CORS no servidor UNO devolver `Access-Control-Allow-Origin` para a origem do Lovable).
+- Embarcado em `https://prata14.unoerp.com.br/granlave-web/` via iframe → `document.referrer` resolve para `https://prata14.unoerp.com.br/granlave-api/` automaticamente. Network deve mostrar a chamada `same-origin` (sem mixed content, sem PNA).
+
+## Fora de escopo
+
+- Proxy server-side intermediando a chamada.
+- Renovação automática de token.
+- Configuração de CORS no servidor UNO (responsabilidade do backend; precisa permitir `authorization` no preflight e a origem do iframe).
+
+## Notas técnicas
+
+- `document.referrer` pode ficar vazio se o UNO usar `rel="noreferrer"` no iframe. Nesse caso caímos no `VITE_UNO_API_BASE_URL` ou no override por query. Documentar no painel de debug.
+- A heurística `*-web → *-api` é simples e cobre `granlave-web/granlave-api`, `unoerp-web/unoerp-api`, etc. Se uma instalação fugir do padrão, o usuário usa `?apiPath=...` ou override manual.
