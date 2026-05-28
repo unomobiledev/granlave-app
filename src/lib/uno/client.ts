@@ -1,4 +1,4 @@
-const UNO_API_BASE_URL = "http://192.168.1.19:8080/unoerp-api/";
+import { resolveUnoApiBaseUrl } from "./api-base";
 
 export function getUnoToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -7,7 +7,8 @@ export function getUnoToken(): string | null {
 
 function buildUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
-  const base = UNO_API_BASE_URL.endsWith("/") ? UNO_API_BASE_URL : `${UNO_API_BASE_URL}/`;
+  const resolved = resolveUnoApiBaseUrl();
+  const base = resolved.endsWith("/") ? resolved : `${resolved}/`;
   return base + path.replace(/^\//, "");
 }
 
