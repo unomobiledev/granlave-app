@@ -1,48 +1,80 @@
-# Corrigir erro "This page didn't load" no iframe do UNO
+# Corrigir tela branca no iframe do UNO
 
-## Problema
+## Causa raiz
 
-O UNO carrega o iframe com a URL `https://granlave-app.lovable.app/&0`. Logs do worker confirmam: essa rota responde **404** no SSR. O redirect client-side via `useNavigate` no `NotFoundComponent` não funciona de forma confiável porque:
+O UNO injeta no iframe URLs como `https://granlave-app.lovable.app/&1` (confirmado: `<iframe id="uno-iframe" src=".../&1">`).
 
-- No SSR o `useEffect` não roda — o servidor já manda 404.
-- Na hidratação, o caminho de erro acaba caindo no `errorComponent` da raiz, que exibe o texto "This page didn't load".
+A correção anterior em `src/server.ts` (`normalizeRequest`) faz **rewrite silencioso** dessas URLs para `/` antes do TanStack rotear. Resultado:
+
+- Servidor responde **200** com o HTML SSR da home (verificado via curl).
+- **Mas a URL na barra do navegador continua `/&1`**.
+- Na hidratação, o TanStack Router compara a árvore SSR (gerada para `/`) com a rota do cliente (`/&1` — que não casa com nenhuma rota) → falha silenciosa → **tela branca** dentro do iframe.
+
+Acessando direto em uma aba (URL `/` pura, sem `&1`) funciona normal — o que confirma que o app está OK e o bug é só na combinação rewrite + hidratação com URL "estranha".
 
 ## Solução
 
-Tratar a URL **no Worker**, antes do TanStack processar a rota. Se o `pathname` não casar com nenhuma das rotas válidas (`/`, `/caminhao/...`, `/etapa/...`, `/_serverFn/...`, `/api/...`, assets), reescrever a request para `/` mantendo a query string. Isso evita o 404 totalmente.
+Trocar o **rewrite** por um **redirect HTTP 302** para `/`. Assim o navegador atualiza a URL real para `/`, o iframe recarrega em `/` limpo, a hidratação bate e o app renderiza.
 
 ## Mudanças
 
-### 1. `src/server.ts`
+### `src/server.ts`
 
-Adicionar uma função `normalizeRequest(request)` que:
+Substituir a função `normalizeRequest(request)` (que retorna uma `Request` reescrita) por uma checagem que, quando o pathname não casa com a allowlist, retorna direto uma `Response` 302:
 
-- Faz parse da URL.
-- Testa o pathname contra uma allowlist (regex) das rotas reais:
-  - `^/$`
-  - `^/caminhao/[^/]+/?$`
-  - `^/etapa/[^/]+/[^/]+/?$`
-  - `^/_serverFn(/|$)`
-  - `^/api(/|$)`
-  - `^/assets(/|$)` e arquivos com extensão (`\.[a-z0-9]+$`) — favicon, css, js, imagens.
-- Se nenhum match, cria uma nova `Request` apontando para `new URL('/', url.origin)` (preservando `search` se útil) e usa essa no `handler.fetch`.
-- Caso contrário, segue normal.
+```ts
+function maybeRedirectUnknownPath(request: Request): Response | undefined {
+  let url: URL;
+  try { url = new URL(request.url); } catch { return undefined; }
 
-Chamar `normalizeRequest` no início do `fetch` do `export default`, antes do try/catch existente.
+  // Só GET/HEAD — outros métodos seguem normal
+  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
 
-### 2. `src/routes/__root.tsx`
+  if (KNOWN_PATH_PATTERNS.some((re) => re.test(url.pathname))) return undefined;
 
-Como o Worker agora resolve o caso, simplificar o `NotFoundComponent` de volta para um componente estático que apenas faz `<Navigate to="/" replace />` (defensivo). Isso só vai disparar em cenários muito raros (rota cliente-side não encontrada após navegação interna).
+  // Redirect 302 para a raiz preservando search se existir
+  const target = new URL("/", url.origin);
+  return new Response(null, {
+    status: 302,
+    headers: { Location: target.toString(), "Cache-Control": "no-store" },
+  });
+}
+```
 
-## Por que não outras abordagens
+No `fetch` do `export default`, chamar antes do `handler.fetch`:
 
-- **Só client-side redirect** (atual): falha porque o 404 SSR já dispara o errorComponent antes do redirect.
-- **`notFoundMode: 'root'` no router**: muda o boundary, mas continua sendo 404 e ainda envolve hidratação delicada.
-- **Rota splat `$.tsx`**: funcionaria, mas captura tudo (inclusive `/api/*`) e exige cuidado com prioridade — reescrever no Worker é mais limpo e isola o hack do UNO da árvore de rotas.
+```ts
+export default {
+  async fetch(request, env, ctx) {
+    const redirect = maybeRedirectUnknownPath(request);
+    if (redirect) return redirect;
+    try {
+      const handler = await getServerEntry();
+      const response = await handler.fetch(request, env, ctx);
+      return await normalizeCatastrophicSsrResponse(response);
+    } catch (error) {
+      console.error(error);
+      return brandedErrorResponse();
+    }
+  },
+};
+```
+
+Remover a função antiga `normalizeRequest` e a chamada correspondente.
+
+### `.lovable/plan.md`
+
+Atualizar a seção "Solução" do plano antigo explicando a mudança de rewrite → redirect e o motivo (hidratação cliente).
 
 ## Validação
 
-Após implementar:
-1. Acessar `https://granlave-app.lovable.app/&0` direto no navegador → deve renderizar a home com status 200.
-2. Verificar logs do worker — não deve mais aparecer 404 para `/&0`.
-3. Testar dentro do iframe do UNO.
+1. `curl -sI "https://granlave-app.lovable.app/&1"` → deve retornar **302** com `Location: https://granlave-app.lovable.app/`.
+2. Abrir o UNO → iframe deve seguir o redirect para `/` e renderizar a home normalmente.
+3. `curl -sI https://granlave-app.lovable.app/` continua 200 (rota válida não redireciona).
+4. `curl -sI https://granlave-app.lovable.app/caminhao/abc` continua 200.
+
+## Por que não outras abordagens
+
+- **Manter rewrite + tentar consertar hidratação**: o router cliente não tem como adivinhar que `/&1` deveria casar com `/` — seria necessário replicar a allowlist no cliente também, dobrando complexidade.
+- **Rota splat `$.tsx` que faz `<Navigate to="/" />`**: funcionaria mas atrasa a renderização (precisa baixar JS, hidratar, navegar). Redirect HTTP é instantâneo.
+- **Pedir ao time do UNO para corrigir o iframe**: fora do nosso controle.

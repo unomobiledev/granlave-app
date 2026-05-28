@@ -32,20 +32,30 @@ const KNOWN_PATH_PATTERNS: RegExp[] = [
   /\.[a-zA-Z0-9]+$/, // arquivos com extensão (favicon.ico, css, js, png...)
 ];
 
-function normalizeRequest(request: Request): Request {
+// Quando o pathname não casa com nenhuma rota conhecida (ex.: `/&0`, `/&1`
+// que o UNO ERP injeta no iframe), responder com redirect 302 para `/`.
+// Rewrite silencioso quebra a hidratação do TanStack Router porque o
+// navegador continua na URL original mas o SSR renderizou outra rota.
+function maybeRedirectUnknownPath(request: Request): Response | undefined {
+  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
+
   let url: URL;
   try {
     url = new URL(request.url);
   } catch {
-    return request;
+    return undefined;
   }
 
-  if (KNOWN_PATH_PATTERNS.some((re) => re.test(url.pathname))) {
-    return request;
-  }
+  if (KNOWN_PATH_PATTERNS.some((re) => re.test(url.pathname))) return undefined;
 
-  const rewritten = new URL("/", url.origin);
-  return new Request(rewritten.toString(), request);
+  const target = new URL("/", url.origin);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target.toString(),
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 function brandedErrorResponse(): Response {
@@ -99,9 +109,10 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const redirect = maybeRedirectUnknownPath(request);
+      if (redirect) return redirect;
       const handler = await getServerEntry();
-      const normalized = normalizeRequest(request);
-      const response = await handler.fetch(normalized, env, ctx);
+      const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
