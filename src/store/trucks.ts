@@ -43,7 +43,7 @@ export const useTrucksStore = create<State>()(
             trucks: [
               ...s.trucks,
               {
-                id: crypto.randomUUID(),
+                id: safeRandomUUID(),
                 os: manualOs,
                 placa,
                 cliente,
@@ -140,7 +140,7 @@ function buildMockTrucks(): Truck[] {
   return [
     // Em atendimento (4)
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       os: "OS-2346",
       placa: "SEW-5H07",
       cliente: "Via Group Participações",
@@ -151,7 +151,7 @@ function buildMockTrucks(): Truck[] {
       checklists: partial(1, 0.5),
     },
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       os: "OS-2347",
       placa: "RKL-2D89",
       cliente: "Cargill Agrícola",
@@ -162,7 +162,7 @@ function buildMockTrucks(): Truck[] {
       checklists: { ...partial(1, 1), ...partial(2, 0.4) },
     },
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       os: "OS-2348",
       placa: "QPM-7B34",
       cliente: "BRF S.A.",
@@ -173,7 +173,7 @@ function buildMockTrucks(): Truck[] {
       checklists: { ...partial(1, 1), ...partial(2, 1), ...partial(3, 0.6) },
     },
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       os: "OS-2349",
       placa: "TGH-9E12",
       cliente: "Bunge Alimentos",
@@ -185,7 +185,7 @@ function buildMockTrucks(): Truck[] {
     },
     // Na fila (3) — nenhum item marcado, stageId=1
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       placa: "ABC-1A23",
       cliente: "JBS Foods",
       motorista: "Paulo Souza",
@@ -195,7 +195,7 @@ function buildMockTrucks(): Truck[] {
       checklists: {},
     },
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       placa: "DEF-4B56",
       cliente: "Marfrig",
       motorista: "Cláudio Ramos",
@@ -205,7 +205,7 @@ function buildMockTrucks(): Truck[] {
       checklists: {},
     },
     {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       placa: "GHI-7C89",
       cliente: "Minerva Foods",
       motorista: "Anderson Dias",
