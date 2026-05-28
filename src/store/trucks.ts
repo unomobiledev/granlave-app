@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { STAGES } from "@/data/stages";
+import { safeRandomUUID } from "@/lib/uuid";
 
 export type OkNok = { status: "ok" | "nok"; nc?: string };
 export type ChecklistValue = boolean | string | OkNok;
