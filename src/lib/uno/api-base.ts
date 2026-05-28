@@ -59,7 +59,11 @@ export function resolveUnoApiBaseUrl(): string {
     /* noop */
   }
 
-  // 3. Derivar do referrer (iframe pai)
+  // 3. Env var de build (.env) — manual sempre vence a auto-detecção
+  const envBase = (import.meta as any).env?.VITE_UNO_API_BASE_URL as string | undefined;
+  if (envBase && isHttpUrl(envBase)) return normalize(envBase);
+
+  // 4. Derivar do referrer (iframe pai)
   const referrer = document.referrer;
   if (referrer && isHttpUrl(referrer)) {
     try {
@@ -78,10 +82,6 @@ export function resolveUnoApiBaseUrl(): string {
       /* noop */
     }
   }
-
-  // 4. Env var de build
-  const envBase = (import.meta as any).env?.VITE_UNO_API_BASE_URL as string | undefined;
-  if (envBase && isHttpUrl(envBase)) return normalize(envBase);
 
   // 5. Default dev (apenas em localhost)
   if (isLocalhost(window.location.hostname)) return DEV_FALLBACK;

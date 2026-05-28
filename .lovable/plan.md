@@ -1,58 +1,46 @@
-
 ## Objetivo
 
-Fazer a chamada às OSs funcionar quando o app roda dentro do UNO HTTPS (ex.: `https://prata14.unoerp.com.br/granlave-web/` → API em `https://prata14.unoerp.com.br/granlave-api/`), sem hardcode do IP local.
+Permitir configurar a URL base da API UNO via `.env` (em vez de UI), e fazer esse valor ter prioridade sobre a auto-detec\u00e7\u00e3o pelo referrer do iframe.
 
-Observação importante do curl: o path da API **não** é `/unoerp-api/` — é `/granlave-api/`. Cada instalação UNO usa um nome diferente (granlave-api, unoerp-api, etc.), então o segmento precisa ser configurável.
+## Observa\u00e7\u00e3o importante sobre `.env` no Vite
 
-## Estratégia de resolução da base URL (ordem)
+Como este \u00e9 um app frontend (Vite), o `.env` \u00e9 lido **em build time**, n\u00e3o em runtime. Apenas vari\u00e1veis prefixadas com `VITE_` ficam dispon\u00edveis no bundle (`import.meta.env.VITE_*`). Ou seja, mudar o `.env` exige rebuild/reload do preview.
 
-1. **Query string** `?api=<url-completa>` — override explícito p/ debug.
-2. **Origem do iframe pai** via `document.referrer` (ou `window.location.ancestorOrigins[0]`) + segmento de API. Como o referrer no exemplo é `https://prata14.unoerp.com.br/granlave-web/`, derivamos `https://prata14.unoerp.com.br/granlave-api/`.
-3. **Env var** `VITE_UNO_API_BASE_URL` (build-time fallback).
-4. **Default dev** `http://192.168.1.19:8080/unoerp-api/` (só quando rodando em localhost).
+Isso n\u00e3o \u00e9 problema para o caso atual (cada instala\u00e7\u00e3o do app dentro de um UNO tem uma URL fixa), mas vale registrar.
 
-O **segmento da API** (`granlave-api` vs `unoerp-api` vs ...) também é configurável:
-- Query `?apiPath=granlave-api`
-- Heurística: substituir `-web` por `-api` no primeiro segmento do path do referrer (ex.: `/granlave-web/` → `/granlave-api/`). Cobre o padrão UNO atual.
-- Env var `VITE_UNO_API_PATH` (default `unoerp-api`).
+## Mudan\u00e7as
 
-Resultado em cache em `sessionStorage` (`uno:apiBase`) para evitar recomputar.
+### 1. `.env.example` (novo arquivo)
+Documenta as duas vari\u00e1veis suportadas:
+```
+# URL base completa da API UNO (inclui o segmento, ex.: granlave-api)
+# Quando definida, tem prioridade sobre a auto-detec\u00e7\u00e3o pelo iframe.
+VITE_UNO_API_BASE_URL=https://prata14.unoerp.com.br/granlave-api/
 
-## Mudanças
+# (Opcional) Apenas o segmento do path, usado quando a base \u00e9 derivada do referrer
+# Default: unoerp-api. Heur\u00edstica *-web \u2192 *-api j\u00e1 cobre granlave-web/granlave-api.
+# VITE_UNO_API_PATH=granlave-api
+```
 
-### Novo arquivo `src/lib/uno/api-base.ts`
-- `resolveUnoApiBaseUrl(): string`
-- `setUnoApiBaseUrlOverride(url: string | null): void` (debug)
-- Lógica:
-  1. Se `?api=` na URL → usa e cacheia.
-  2. Se `sessionStorage['uno:apiBase']` → usa.
-  3. Se `document.referrer` tem origem diferente de `window.location.origin` e é http(s) → `${referrerOrigin}/${apiPath}/` onde `apiPath` vem de `?apiPath`, ou da heurística `*-web → *-api` aplicada ao primeiro segmento do referrer, ou `VITE_UNO_API_PATH`, ou `unoerp-api`.
-  4. Senão, `VITE_UNO_API_BASE_URL`.
-  5. Senão, default dev `http://192.168.1.19:8080/unoerp-api/`.
+### 2. `src/lib/uno/api-base.ts`
+Reordenar a resolu\u00e7\u00e3o para "manual sempre vence":
 
-### `src/lib/uno/client.ts`
-- Remove a const `UNO_API_BASE_URL` hardcoded.
-- `buildUrl()` passa a chamar `resolveUnoApiBaseUrl()`.
-- Mantém token via `localStorage.token`, `Authorization: Bearer ...`.
+1. `?api=` (override de debug) \u2192 sessionStorage
+2. `sessionStorage['uno:apiBase']` (cache de debug)
+3. **`VITE_UNO_API_BASE_URL` (novo: sobe na prioridade)** \u2014 se setada no `.env`, vence a auto-detec\u00e7\u00e3o
+4. `document.referrer` (auto-detec\u00e7\u00e3o do iframe pai)
+5. Default dev (`http://192.168.1.19:8080/unoerp-api/`) em localhost
+6. Fallback: mesma origem + `unoerp-api`
 
-### `src/components/UnoDevTokenBootstrap.tsx`
-- Mostrar o `apiBase` resolvido no painel de debug.
-- Botão "Resetar apiBase" (limpa `sessionStorage['uno:apiBase']`).
-- Campo para override manual (chama `setUnoApiBaseUrlOverride`).
-
-## Validação
-
-- Acesso direto: `https://granlave-app.lovable.app/?api=https://prata14.unoerp.com.br/granlave-api` → deve listar OSs (depende de CORS no servidor UNO devolver `Access-Control-Allow-Origin` para a origem do Lovable).
-- Embarcado em `https://prata14.unoerp.com.br/granlave-web/` via iframe → `document.referrer` resolve para `https://prata14.unoerp.com.br/granlave-api/` automaticamente. Network deve mostrar a chamada `same-origin` (sem mixed content, sem PNA).
+### 3. `.env.local` (criar se n\u00e3o existir)
+N\u00e3o crio com valor real \u2014 fica a cargo do dev. Adicionar `.env.local` ao `.gitignore` se ainda n\u00e3o estiver (verificar).
 
 ## Fora de escopo
 
-- Proxy server-side intermediando a chamada.
-- Renovação automática de token.
-- Configuração de CORS no servidor UNO (responsabilidade do backend; precisa permitir `authorization` no preflight e a origem do iframe).
+- UI de configura\u00e7\u00e3o em runtime (decidido: `.env`).
+- Multi-tenant em runtime (um deploy = uma URL base fixa).
 
-## Notas técnicas
+## Valida\u00e7\u00e3o
 
-- `document.referrer` pode ficar vazio se o UNO usar `rel="noreferrer"` no iframe. Nesse caso caímos no `VITE_UNO_API_BASE_URL` ou no override por query. Documentar no painel de debug.
-- A heurística `*-web → *-api` é simples e cobre `granlave-web/granlave-api`, `unoerp-web/unoerp-api`, etc. Se uma instalação fugir do padrão, o usuário usa `?apiPath=...` ou override manual.
+- Sem `.env` \u2192 comportamento atual (auto-detect via referrer, fallback localhost).
+- Com `VITE_UNO_API_BASE_URL=https://prata14.unoerp.com.br/granlave-api/` no `.env.local` + restart do dev server \u2192 todas as chamadas v\u00e3o para essa URL, independente do referrer.
