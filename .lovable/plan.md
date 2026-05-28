@@ -1,58 +1,26 @@
+## Problema
 
-## Objetivo
+Quando o UNO embute o app no iframe, ele aciona a URL `https://granlave-app.lovable.app/&0` (provavelmente um sufixo interno do ERP, tipo cache-buster ou flag). O TanStack Router não tem rota que case com `/&0`, então devolve **404**.
 
-Usar uma variável de ambiente `VITE_UNO_DEV_TOKEN` como fonte do token durante o desenvolvimento, mantendo o código **pronto para o deploy dentro do UNO**: em produção o token virá do `localStorage` e a variável de ambiente fica vazia / removida, sem precisar mexer no código.
+## Solução
 
-## Estratégia
+Trocar o comportamento de "rota não encontrada" para **redirecionar silenciosamente para `/`** em vez de mostrar a tela de 404. Assim, qualquer sufixo bizarro que o UNO (ou qualquer outro contexto) acrescente cai sempre na home.
 
-`getUnoToken()` passa a ter ordem de prioridade:
-1. `localStorage.getItem("token")` — caminho oficial, que será o único usado quando a app rodar embarcada no UNO.
-2. Fallback: `import.meta.env.VITE_UNO_DEV_TOKEN` — só popula em dev.
+## Mudanças
 
-Assim, no dia do deploy, basta a variável estar ausente (ou vazia) e o comportamento volta a ser "lê do localStorage", exatamente como pedido. Nenhum `if (DEV)` condicional — a precedência natural já garante isso.
+**1. `src/routes/__root.tsx`**
+- No `notFoundComponent` da rota raiz, em vez de renderizar a tela "404 Page not found", lançar um `redirect({ to: "/" })` via `useEffect` no client (ou usar `beforeLoad`/`loader` pattern equivalente).
+- Implementação prática: componente que chama `useNavigate()` + `useEffect` pra `navigate({ to: "/", replace: true })` no mount, retornando `null` enquanto isso.
 
-## Arquivos
+**2. (opcional) `src/router.tsx`**
+- Garantir que `defaultNotFoundComponent` siga a mesma lógica, caso alguma rota interna dispare `notFound()` sem componente próprio.
 
-### 1. `src/lib/uno/client.ts` (editar)
-- Atualizar `getUnoToken()`:
-  ```ts
-  export function getUnoToken(): string | null {
-    if (typeof window !== "undefined") {
-      const fromStorage = window.localStorage.getItem("token");
-      if (fromStorage) return fromStorage;
-    }
-    const fromEnv = import.meta.env.VITE_UNO_DEV_TOKEN as string | undefined;
-    return fromEnv && fromEnv.length > 0 ? fromEnv : null;
-  }
-  ```
-- Mantém `unoFetch` e o erro 401 imediato sem mudanças.
+## Fora de escopo
 
-### 2. `src/vite-env.d.ts` (criar/ajustar)
-- Tipar `VITE_UNO_DEV_TOKEN` para não dar erro de TS:
-  ```ts
-  /// <reference types="vite/client" />
-  interface ImportMetaEnv {
-    readonly VITE_UNO_DEV_TOKEN?: string;
-  }
-  interface ImportMeta {
-    readonly env: ImportMetaEnv;
-  }
-  ```
-  (Se o arquivo já existe, só adiciona o campo.)
+- Não vamos investigar/alterar a config do UNO agora (você escolheu redirecionar no app).
+- Não mexe em token, CORS, nem nas chamadas à API do ERP.
+- Não cria rotas novas; só muda o handler de 404.
 
-### 3. Secret no Lovable
-- Adicionar `VITE_UNO_DEV_TOKEN` via `add_secret` (o usuário cola o JWT no formulário seguro).
-- Importante avisar:
-  - Por ter prefixo `VITE_`, o valor **vai parar no bundle do client** — não é segredo real, é só conveniência de dev.
-  - JWT do UNO **expira**; quando expirar, atualizar via `update_secret` (gera novo build).
+## Como validar
 
-## Caminho até o deploy (sem mudança de código)
-
-1. Antes do deploy embarcado no UNO: remover o secret `VITE_UNO_DEV_TOKEN` (ou deixar vazio).
-2. A app passa a ler exclusivamente `localStorage.getItem("token")`, populado pela origem onde estiver servida.
-3. Nenhuma alteração em `client.ts`, `os.ts` ou rotas.
-
-## Observações
-
-- Continuamos sem proxy server-side; chamada direta do browser ao `http://192.168.1.19:8080`. Mixed content / CORS seguem como limites do servidor UNO.
-- Se mais tarde quisermos trocar para `postMessage` do UNO → iframe, a mudança fica isolada em `getUnoToken()`.
+Depois do build, abrir `https://granlave-app.lovable.app/&0` direto no navegador: deve redirecionar pra `/` e renderizar a home normalmente. Mesmo comportamento dentro do iframe do UNO.
