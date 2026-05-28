@@ -18,6 +18,36 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
+// Allowlist de rotas reais do app. Qualquer pathname fora disso (ex.: `/&0`
+// que o UNO ERP injeta no iframe) é reescrito para `/` antes do TanStack
+// rotear, evitando 404 no SSR.
+const KNOWN_PATH_PATTERNS: RegExp[] = [
+  /^\/$/,
+  /^\/caminhao\/[^/]+\/?$/,
+  /^\/etapa\/[^/]+\/[^/]+\/?$/,
+  /^\/_serverFn(\/|$)/,
+  /^\/api(\/|$)/,
+  /^\/assets(\/|$)/,
+  /^\/_build(\/|$)/,
+  /\.[a-zA-Z0-9]+$/, // arquivos com extensão (favicon.ico, css, js, png...)
+];
+
+function normalizeRequest(request: Request): Request {
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return request;
+  }
+
+  if (KNOWN_PATH_PATTERNS.some((re) => re.test(url.pathname))) {
+    return request;
+  }
+
+  const rewritten = new URL("/", url.origin);
+  return new Request(rewritten.toString(), request);
+}
+
 function brandedErrorResponse(): Response {
   return new Response(renderErrorPage(), {
     status: 500,
@@ -70,7 +100,8 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
+      const normalized = normalizeRequest(request);
+      const response = await handler.fetch(normalized, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);

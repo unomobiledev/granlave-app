@@ -1,26 +1,48 @@
+# Corrigir erro "This page didn't load" no iframe do UNO
+
 ## Problema
 
-Quando o UNO embute o app no iframe, ele aciona a URL `https://granlave-app.lovable.app/&0` (provavelmente um sufixo interno do ERP, tipo cache-buster ou flag). O TanStack Router não tem rota que case com `/&0`, então devolve **404**.
+O UNO carrega o iframe com a URL `https://granlave-app.lovable.app/&0`. Logs do worker confirmam: essa rota responde **404** no SSR. O redirect client-side via `useNavigate` no `NotFoundComponent` não funciona de forma confiável porque:
+
+- No SSR o `useEffect` não roda — o servidor já manda 404.
+- Na hidratação, o caminho de erro acaba caindo no `errorComponent` da raiz, que exibe o texto "This page didn't load".
 
 ## Solução
 
-Trocar o comportamento de "rota não encontrada" para **redirecionar silenciosamente para `/`** em vez de mostrar a tela de 404. Assim, qualquer sufixo bizarro que o UNO (ou qualquer outro contexto) acrescente cai sempre na home.
+Tratar a URL **no Worker**, antes do TanStack processar a rota. Se o `pathname` não casar com nenhuma das rotas válidas (`/`, `/caminhao/...`, `/etapa/...`, `/_serverFn/...`, `/api/...`, assets), reescrever a request para `/` mantendo a query string. Isso evita o 404 totalmente.
 
 ## Mudanças
 
-**1. `src/routes/__root.tsx`**
-- No `notFoundComponent` da rota raiz, em vez de renderizar a tela "404 Page not found", lançar um `redirect({ to: "/" })` via `useEffect` no client (ou usar `beforeLoad`/`loader` pattern equivalente).
-- Implementação prática: componente que chama `useNavigate()` + `useEffect` pra `navigate({ to: "/", replace: true })` no mount, retornando `null` enquanto isso.
+### 1. `src/server.ts`
 
-**2. (opcional) `src/router.tsx`**
-- Garantir que `defaultNotFoundComponent` siga a mesma lógica, caso alguma rota interna dispare `notFound()` sem componente próprio.
+Adicionar uma função `normalizeRequest(request)` que:
 
-## Fora de escopo
+- Faz parse da URL.
+- Testa o pathname contra uma allowlist (regex) das rotas reais:
+  - `^/$`
+  - `^/caminhao/[^/]+/?$`
+  - `^/etapa/[^/]+/[^/]+/?$`
+  - `^/_serverFn(/|$)`
+  - `^/api(/|$)`
+  - `^/assets(/|$)` e arquivos com extensão (`\.[a-z0-9]+$`) — favicon, css, js, imagens.
+- Se nenhum match, cria uma nova `Request` apontando para `new URL('/', url.origin)` (preservando `search` se útil) e usa essa no `handler.fetch`.
+- Caso contrário, segue normal.
 
-- Não vamos investigar/alterar a config do UNO agora (você escolheu redirecionar no app).
-- Não mexe em token, CORS, nem nas chamadas à API do ERP.
-- Não cria rotas novas; só muda o handler de 404.
+Chamar `normalizeRequest` no início do `fetch` do `export default`, antes do try/catch existente.
 
-## Como validar
+### 2. `src/routes/__root.tsx`
 
-Depois do build, abrir `https://granlave-app.lovable.app/&0` direto no navegador: deve redirecionar pra `/` e renderizar a home normalmente. Mesmo comportamento dentro do iframe do UNO.
+Como o Worker agora resolve o caso, simplificar o `NotFoundComponent` de volta para um componente estático que apenas faz `<Navigate to="/" replace />` (defensivo). Isso só vai disparar em cenários muito raros (rota cliente-side não encontrada após navegação interna).
+
+## Por que não outras abordagens
+
+- **Só client-side redirect** (atual): falha porque o 404 SSR já dispara o errorComponent antes do redirect.
+- **`notFoundMode: 'root'` no router**: muda o boundary, mas continua sendo 404 e ainda envolve hidratação delicada.
+- **Rota splat `$.tsx`**: funcionaria, mas captura tudo (inclusive `/api/*`) e exige cuidado com prioridade — reescrever no Worker é mais limpo e isola o hack do UNO da árvore de rotas.
+
+## Validação
+
+Após implementar:
+1. Acessar `https://granlave-app.lovable.app/&0` direto no navegador → deve renderizar a home com status 200.
+2. Verificar logs do worker — não deve mais aparecer 404 para `/&0`.
+3. Testar dentro do iframe do UNO.
