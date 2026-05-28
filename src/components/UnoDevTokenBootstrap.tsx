@@ -13,12 +13,12 @@ export function UnoDevTokenBootstrap() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.localStorage.getItem("token")) return;
 
     let cancelled = false;
     getUnoDevToken()
       .then(({ token }) => {
         if (cancelled || !token) return;
+        if (window.localStorage.getItem("token") === token) return;
         window.localStorage.setItem("token", token);
         queryClient.invalidateQueries({ queryKey: ["uno"] });
       })
