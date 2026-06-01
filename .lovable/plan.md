@@ -1,100 +1,50 @@
-## Resumo
+## Problema
 
-Três ajustes:
+A tela inicial está retornando 500 (SSR) com o erro:
 
-1. **Etapa 1** — botão de busca ao lado do campo de placa.
-2. **Tela inicial** — reordenar seções e adicionar bloco "Concluídos".
-3. **Camada UNO** — cada bloco da home busca OSs por **status** via API (mock por enquanto), pronto para troca real.
-
----
-
-## 1. Etapa 1 — `src/components/stage1/Stage1Wizard.tsx`
-
-- Layout horizontal: input "Placa 1" (`flex-1`) + botão "Buscar cliente pela placa" alinhados na mesma linha.
-- Para tipos com 2/3 placas, o botão fica ao lado da Placa 1. Placas 2 e 3 ficam abaixo, largura cheia.
-- Botão "Buscar cliente manualmente" permanece abaixo, largura cheia.
-
----
-
-## 2. Tela inicial — `src/routes/index.tsx`
-
-Nova ordem dos blocos:
-
-1. **Bloco 1 — Veículos na fila** → OSs UNO com status *Aguardando na fila*
-2. **Bloco 2 — Veículos em atendimento** → OSs UNO com status *Em atendimento*
-3. **Bloco 3 — Veículos concluídos (últimos 8)** → OSs UNO com status *Concluído* (novo bloco)
-4. **Bloco 4 — Últimas OSs (UNO ERP)** → seção genérica já existente, mantida ao final
-
-Cada bloco:
-- `useQuery` próprio com `queryKey` por status.
-- `Skeleton` em loading, card de erro em falha, `EmptyBlock` quando vazio.
-- Cards do bloco 3 em estilo "concluído" (verde/muted), com badge "Finalizado antecipadamente na Etapa X" quando aplicável e link para `/caminhao/$truckId`.
-
-> O store local (`useTrucksStore`) **continua existindo** apenas para o fluxo do wizard / etapas / finalização antecipada. A home passa a refletir o que vem da API UNO. Quando o usuário cria/avança/finaliza um caminhão, chamamos `queryClient.invalidateQueries(['uno','os'])` para refrescar os blocos.
-
----
-
-## 3. Camada UNO por status — preparada para API, mock por enquanto
-
-### Mapa status UNO ↔ etapa do sistema
-
-| Bloco home               | Status UNO            | Etapa correspondente   |
-|--------------------------|-----------------------|------------------------|
-| 1 — Na fila              | `AGUARDANDO_FILA`     | (pré-Etapa 1)          |
-| 2 — Em atendimento       | `EM_ATENDIMENTO`      | Etapas 1 → 4 em andamento |
-| 3 — Concluídos           | `CONCLUIDO`           | pós-Etapa 4 (ou finalizado antecipado) |
-
-Constante exportada em `src/lib/uno/os.ts`:
-
-```ts
-export const OS_STATUS = {
-  AGUARDANDO_FILA: 'AGUARDANDO_FILA',
-  EM_ATENDIMENTO:  'EM_ATENDIMENTO',
-  CONCLUIDO:       'CONCLUIDO',
-} as const;
-export type OSStatus = typeof OS_STATUS[keyof typeof OS_STATUS];
+```
+TypeError: Cannot read properties of undefined (reading 'AGUARDANDO_FILA')
+  at src/lib/uno/os.mock.ts:25
 ```
 
-> Os valores reais (string) virão do UNO. Hoje ficam como placeholders e a troca é centralizada nesta constante.
+Causa: **dependência circular** entre `src/lib/uno/os.ts` e `src/lib/uno/os.mock.ts`.
 
-### Novas funções em `src/lib/uno/os.ts`
+- `os.ts` (linhas 2–5) importa `mockListarOSsPorStatus` de `./os.mock`
+- `os.mock.ts` (linhas 1–2) importa `OS_STATUS` e `OSStatus` de `./os`
 
-Mesma assinatura/estilo de `clientes.ts` (flag `USE_MOCK = true`, comentário `TODO(UNO):` com endpoint sugerido):
+Como `os.ts` é avaliado primeiro e suspende em `import "./os.mock"`, o mock executa antes que `OS_STATUS` esteja definido — então `OS_STATUS.AGUARDANDO_FILA` lança `TypeError` no topo do módulo, derrubando toda a página.
 
-- `listarOSsPorStatus(status: OSStatus, opts?: { limit?: number }): Promise<OS[]>`
-  - `TODO(UNO): GET servico/osq0001?situacao={status}&page=0&size={limit}` (endpoint a confirmar com UNO).
-  - Quando `USE_MOCK`, delega para `os.mock.ts`.
-- Conveniências:
-  - `listarOSsNaFila()` → `listarOSsPorStatus('AGUARDANDO_FILA')`
-  - `listarOSsEmAtendimento()` → `listarOSsPorStatus('EM_ATENDIMENTO')`
-  - `listarOSsConcluidas(limit = 8)` → `listarOSsPorStatus('CONCLUIDO', { limit })`
-- `listarUltimasOS` (já existe) — mantida como está para o bloco 4.
-- `mapOSToCardData(os: OS)` — helper que normaliza o payload do UNO para o shape dos cards (`os`, `placa`, `cliente`, `dataEmissao`, `situacao`, `etapaAtual?`, `finalizadoAntecipado?`).
+## Correção
 
-### Novo arquivo `src/lib/uno/os.mock.ts`
+Quebrar o ciclo movendo as constantes/tipos de status para um arquivo neutro que não importa nada do `os.ts` nem do `os.mock.ts`.
 
-- 3 conjuntos de mocks coerentes (fila / atendimento / concluído), compatíveis com o tipo `OS`.
-- `mockListarOSsPorStatus(status, opts?)` retorna a lista do status pedido com pequeno delay (~300ms), como em `clientes.mock.ts`.
-- Inclui exemplo com `finalizadoAntecipado` para validar a badge no bloco 3.
+### 1. Criar `src/lib/uno/os.types.ts`
 
-### Consumo na home
+Conterá apenas:
+- `OS_STATUS` (objeto `as const`)
+- `OSStatus` (tipo derivado)
 
-Cada bloco usa `useQuery` próprio:
+Sem nenhum import de `client`, `os.ts` ou `os.mock.ts`.
 
-- `['uno','os','status','AGUARDANDO_FILA']` → `listarOSsNaFila()`
-- `['uno','os','status','EM_ATENDIMENTO']` → `listarOSsEmAtendimento()`
-- `['uno','os','status','CONCLUIDO', 8]` → `listarOSsConcluidas(8)`
-- `['uno','os','ultimas', 10]` → `listarUltimasOS(10)` (bloco 4, inalterado)
+### 2. Atualizar `src/lib/uno/os.ts`
 
-### Quando a API real chegar
+- Remover a declaração local de `OS_STATUS` / `OSStatus`.
+- Importar `OS_STATUS` e `OSStatus` de `./os.types`.
+- Reexportar (`export { OS_STATUS, type OSStatus } from "./os.types"`) para manter a API pública estável — `index.tsx` e outros consumidores continuam importando de `@/lib/uno/os` sem alteração.
+- Manter todo o resto (funções `listarOSsPorStatus`, `mapOSToCardData`, etc.) igual.
 
-Trocar `USE_MOCK = false` em `os.ts`, ajustar os valores em `OS_STATUS` e o path/query em `listarOSsPorStatus` conforme contrato UNO. Nada na UI muda.
+### 3. Atualizar `src/lib/uno/os.mock.ts`
 
----
+- Trocar `import { OS_STATUS } from "./os"` por `import { OS_STATUS, type OSStatus } from "./os.types"`.
+- Remover o `import type { OSStatus } from "./os"`.
+- Nenhuma outra mudança — os dados mock continuam idênticos.
 
-## Arquivos
+## Verificação
 
-- `src/components/stage1/Stage1Wizard.tsx` — layout horizontal placa + botão.
-- `src/routes/index.tsx` — reordenação, novo bloco "Concluídos", todos os blocos via `useQuery` por status.
-- `src/lib/uno/os.ts` — `OS_STATUS`, `listarOSsPorStatus` + conveniências, `mapOSToCardData`, flag `USE_MOCK`.
-- `src/lib/uno/os.mock.ts` — **novo**, mocks por status.
+1. Logs do dev server limpos (sem mais `TypeError ... AGUARDANDO_FILA`).
+2. A rota `/` renderiza os 4 blocos (Fila, Em atendimento, Concluídos, Últimas OSs) com os dados mock.
+3. Nenhum import quebra em `index.tsx`, `caminhao.$truckId.tsx`, etc.
+
+## Escopo
+
+Mudança puramente estrutural (refator de imports). Nenhuma alteração de UI, comportamento, contrato de API UNO, status names ou store local.
