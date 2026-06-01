@@ -1,5 +1,4 @@
-import type { OSStatus } from "./os";
-import { OS_STATUS } from "./os";
+import { OS_STATUS, type OSStatus } from "./os.types";
 
 export type MockOS = {
   id: string;
