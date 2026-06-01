@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { AppHeader } from "@/components/AppHeader";
 import { Textarea } from "@/components/ui/textarea";
+import { Stage1Wizard } from "@/components/stage1/Stage1Wizard";
 import {
   Select,
   SelectContent,
@@ -109,56 +110,20 @@ function EtapaPage() {
           </div>
         </Card>
 
+        {isRecepcao ? (
+          <Stage1Wizard truck={truck} />
+        ) : (
         <Card className="p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">
-              {isRecepcao ? "Formulário de abertura de OS" : "Checklist da etapa"}
+              Checklist da etapa
             </h2>
-            {!isRecepcao && (
-              <span className="text-sm text-muted-foreground">
-                {progress.done}/{progress.total} concluídos
-              </span>
-            )}
+            <span className="text-sm text-muted-foreground">
+              {progress.done}/{progress.total} concluídos
+            </span>
           </div>
-          {!isRecepcao && <Progress value={pct} className="mb-6 h-1.5" />}
+          <Progress value={pct} className="mb-6 h-1.5" />
 
-          {isRecepcao ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {stage.checklist.map((item) => {
-                const value = state[item.id];
-                const strVal = typeof value === "string" ? value : "";
-                if (item.type === "select") {
-                  return (
-                    <div key={item.id} className="space-y-1.5">
-                      <Label htmlFor={item.id} className="text-sm font-medium">{item.label}</Label>
-                      <Select
-                        value={strVal}
-                        onValueChange={(v) => setChecklistItem(truck.id, stageNum, item.id, v)}
-                      >
-                        <SelectTrigger id={item.id}><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                        <SelectContent>
-                          {(item.options ?? []).map((opt) => (
-                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={item.id} className="space-y-1.5">
-                    <Label htmlFor={item.id} className="text-sm font-medium">{item.label}</Label>
-                    <Input
-                      id={item.id}
-                      placeholder={item.placeholder}
-                      value={strVal}
-                      onChange={(e) => setChecklistItem(truck.id, stageNum, item.id, e.target.value)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
           <div className="space-y-3">
             {stage.checklist.map((item, idx) => {
               const value = state[item.id];
@@ -306,7 +271,6 @@ function EtapaPage() {
               );
             })}
           </div>
-          )}
 
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Link to="/caminhao/$truckId" params={{ truckId: truck.id }}>
@@ -314,16 +278,13 @@ function EtapaPage() {
             </Link>
             <Button onClick={handleAdvance} disabled={!complete} className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
-              {isRecepcao
-                ? truck.os
-                  ? "Avançar para Etapa 2"
-                  : "Abrir Ordem de Serviço"
-                : isLast
+              {isLast
                 ? "Concluir higienização"
                 : `Avançar para Etapa ${stageNum + 1}`}
             </Button>
           </div>
         </Card>
+        )}
       </main>
     </div>
   );
