@@ -205,39 +205,57 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
       {/* Passo B */}
       {nPlacas > 0 && (
         <StepCard step="B" title="Placas do veículo">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {Array.from({ length: nPlacas }).map((_, i) => {
-              const idx = (i + 1) as 1 | 2 | 3;
-              const val = idx === 1 ? placa1 : idx === 2 ? placa2 : placa3;
-              return (
-                <div key={idx} className="space-y-1.5">
-                  <Label htmlFor={`placa_${idx}`}>Placa {idx}</Label>
-                  <Input
-                    id={`placa_${idx}`}
-                    value={val}
-                    onChange={(e) => setPlaca(idx, e.target.value)}
-                    placeholder="ABC-1D23"
-                    className="font-mono uppercase"
-                  />
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              onClick={handleBuscarPlaca}
-              disabled={!placa1.trim() || lookupState.status === "loading"}
-            >
-              {lookupState.status === "loading" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              Buscar cliente pela placa
-            </Button>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="placa_1">Placa 1</Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <Input
+                  id="placa_1"
+                  value={placa1}
+                  onChange={(e) => setPlaca(1, e.target.value)}
+                  placeholder="ABC-1D23"
+                  className="flex-1 font-mono uppercase"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2 sm:shrink-0"
+                  onClick={handleBuscarPlaca}
+                  disabled={!placa1.trim() || lookupState.status === "loading"}
+                >
+                  {lookupState.status === "loading" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  Buscar cliente pela placa
+                </Button>
+              </div>
+            </div>
+            {nPlacas >= 2 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="placa_2">Placa 2</Label>
+                <Input
+                  id="placa_2"
+                  value={placa2}
+                  onChange={(e) => setPlaca(2, e.target.value)}
+                  placeholder="ABC-1D23"
+                  className="font-mono uppercase"
+                />
+              </div>
+            )}
+            {nPlacas >= 3 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="placa_3">Placa 3</Label>
+                <Input
+                  id="placa_3"
+                  value={placa3}
+                  onChange={(e) => setPlaca(3, e.target.value)}
+                  placeholder="ABC-1D23"
+                  className="font-mono uppercase"
+                />
+              </div>
+            )}
           </div>
         </StepCard>
       )}

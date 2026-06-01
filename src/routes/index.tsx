@@ -1,20 +1,28 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Truck as TruckIcon, CheckCircle2, ChevronRight, Clock, RotateCcw } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { STAGES, getStage } from "@/data/stages";
 import {
-  useTrucksStore,
-  checklistProgress,
-  isChecklistComplete,
-  isTruckInProgress,
-  type Truck,
-} from "@/store/trucks";
+  Truck as TruckIcon,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  RotateCcw,
+  FlagOff,
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { STAGES } from "@/data/stages";
+import { useTrucksStore } from "@/store/trucks";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/AppHeader";
-import { listarUltimasOS, type OS } from "@/lib/uno/os";
+import {
+  listarUltimasOS,
+  listarOSsNaFila,
+  listarOSsEmAtendimento,
+  listarOSsConcluidas,
+  mapOSToCardData,
+  type OS,
+  type OSCardData,
+} from "@/lib/uno/os";
 import { UnoApiError } from "@/lib/uno/client";
 import {
   Table,
@@ -37,7 +45,6 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const trucks = useTrucksStore((s) => s.trucks);
   const seedMock = useTrucksStore((s) => s.seedMock);
   const resetMock = useTrucksStore((s) => s.resetMock);
 
@@ -45,55 +52,148 @@ function Index() {
     seedMock();
   }, [seedMock]);
 
-  const emAtendimento = trucks.filter(isTruckInProgress);
-  const fila = trucks
-    .filter((t) => !isTruckInProgress(t))
-    .sort((a, b) => a.createdAt - b.createdAt);
-
   return (
     <div className="min-h-full bg-muted/30">
       <AppHeader />
       <main className="mx-auto max-w-7xl space-y-10 px-6 py-8">
-        <section>
-          <SectionHeader
-            title="Veículos em atendimento"
-            count={emAtendimento.length}
-            action={
-              <Button variant="outline" size="sm" className="gap-2" onClick={resetMock}>
-                <RotateCcw className="h-3.5 w-3.5" /> Resetar mockup
-              </Button>
-            }
-          />
-          {emAtendimento.length === 0 ? (
-            <EmptyBlock message="Nenhum veículo em atendimento." />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {emAtendimento.map((truck) => (
-                <TruckCard key={truck.id} truck={truck} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section>
-          <SectionHeader title="Veículos na fila" count={fila.length} />
-          {fila.length === 0 ? (
-            <EmptyBlock message="Fila vazia." />
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {fila.map((truck, i) => (
-                <QueueCard key={truck.id} truck={truck} position={i + 1} />
-              ))}
-            </div>
-          )}
-        </section>
-
+        <FilaSection onReset={resetMock} />
+        <AtendimentoSection />
+        <ConcluidosSection />
         <section>
           <UltimasOSSection />
         </section>
       </main>
     </div>
   );
+}
+
+/* ===========================================================
+ * Blocos por status (todos vindos da API UNO — mock por enquanto)
+ * =========================================================== */
+
+function FilaSection({ onReset }: { onReset: () => void }) {
+  const q = useQuery({
+    queryKey: ["uno", "os", "status", "AGUARDANDO_FILA"],
+    queryFn: () => listarOSsNaFila(),
+  });
+  const rows = (q.data ?? []).map(mapOSToCardData);
+  return (
+    <section>
+      <SectionHeader
+        title="Veículos na fila"
+        count={rows.length}
+        action={
+          <Button variant="outline" size="sm" className="gap-2" onClick={onReset}>
+            <RotateCcw className="h-3.5 w-3.5" /> Resetar mockup
+          </Button>
+        }
+      />
+      <StatusBlockBody
+        query={q}
+        rows={rows}
+        emptyMessage="Fila vazia."
+        skeletonCount={3}
+        render={(rows) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((r, i) => (
+              <QueueCard key={r.id} os={r} position={i + 1} />
+            ))}
+          </div>
+        )}
+      />
+    </section>
+  );
+}
+
+function AtendimentoSection() {
+  const q = useQuery({
+    queryKey: ["uno", "os", "status", "EM_ATENDIMENTO"],
+    queryFn: () => listarOSsEmAtendimento(),
+  });
+  const rows = (q.data ?? []).map(mapOSToCardData);
+  return (
+    <section>
+      <SectionHeader title="Veículos em atendimento" count={rows.length} />
+      <StatusBlockBody
+        query={q}
+        rows={rows}
+        emptyMessage="Nenhum veículo em atendimento."
+        skeletonCount={4}
+        render={(rows) => (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {rows.map((r) => (
+              <AtendimentoCard key={r.id} os={r} />
+            ))}
+          </div>
+        )}
+      />
+    </section>
+  );
+}
+
+function ConcluidosSection() {
+  const q = useQuery({
+    queryKey: ["uno", "os", "status", "CONCLUIDO", 8],
+    queryFn: () => listarOSsConcluidas(8),
+  });
+  const rows = (q.data ?? []).map(mapOSToCardData);
+  return (
+    <section>
+      <SectionHeader title="Veículos concluídos" count={rows.length} />
+      <StatusBlockBody
+        query={q}
+        rows={rows}
+        emptyMessage="Nenhum veículo concluído ainda."
+        skeletonCount={4}
+        render={(rows) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {rows.map((r) => (
+              <ConcluidoCard key={r.id} os={r} />
+            ))}
+          </div>
+        )}
+      />
+    </section>
+  );
+}
+
+function StatusBlockBody({
+  query,
+  rows,
+  emptyMessage,
+  skeletonCount,
+  render,
+}: {
+  query: { isLoading: boolean; isError: boolean; error: unknown; refetch: () => void };
+  rows: OSCardData[];
+  emptyMessage: string;
+  skeletonCount: number;
+  render: (rows: OSCardData[]) => React.ReactNode;
+}) {
+  if (query.isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: skeletonCount }).map((_, i) => (
+          <Skeleton key={i} className="h-28 w-full" />
+        ))}
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <Card className="border-destructive/40 bg-destructive/5 p-4 text-sm">
+        <p className="font-medium text-destructive">Não foi possível carregar.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {(query.error as Error)?.message ?? "Erro desconhecido"}
+        </p>
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => query.refetch()}>
+          Tentar novamente
+        </Button>
+      </Card>
+    );
+  }
+  if (rows.length === 0) return <EmptyBlock message={emptyMessage} />;
+  return <>{render(rows)}</>;
 }
 
 function UltimasOSSection() {
@@ -217,14 +317,12 @@ function EmptyBlock({ message }: { message: string }) {
   );
 }
 
-function QueueCard({ truck, position }: { truck: Truck; position: number }) {
-  const waiting = Math.max(0, Math.floor((Date.now() - truck.createdAt) / 60000));
+function QueueCard({ os, position }: { os: OSCardData; position: number }) {
+  const waiting = os.dataEmissao
+    ? Math.max(0, Math.floor((Date.now() - new Date(os.dataEmissao).getTime()) / 60000))
+    : 0;
   return (
-    <Link
-      to="/caminhao/$truckId"
-      params={{ truckId: truck.id }}
-      className="group block"
-    >
+    <div className="group block">
       <Card className="flex items-center gap-3 border-amber-300/60 bg-gradient-to-br from-amber-50 to-amber-100/60 p-4 transition-all hover:shadow-md group-hover:-translate-y-0.5">
         <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-amber-500 font-bold leading-none text-white">
           <span className="text-lg">{position}º</span>
@@ -232,10 +330,10 @@ function QueueCard({ truck, position }: { truck: Truck; position: number }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-700/80">
-            OS pendente
+            {os.os}
           </div>
-          <div className="truncate font-mono text-sm font-semibold text-foreground">{truck.placa}</div>
-          <div className="truncate text-xs text-muted-foreground">{truck.cliente}</div>
+          <div className="truncate font-mono text-sm font-semibold text-foreground">{os.placa}</div>
+          <div className="truncate text-xs text-muted-foreground">{os.cliente}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -244,24 +342,17 @@ function QueueCard({ truck, position }: { truck: Truck; position: number }) {
           <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }
 
-function TruckCard({ truck }: { truck: Truck }) {
-  const stage = getStage(truck.stageId);
-  if (!stage) return null;
-  const progress = checklistProgress(truck, stage.id);
-  const pct = progress.total > 0 ? (progress.done / progress.total) * 100 : 0;
-  const complete = isChecklistComplete(truck, stage.id);
-  const minutes = Math.max(0, Math.floor((Date.now() - truck.enteredStageAt) / 60000));
-
+function AtendimentoCard({ os }: { os: OSCardData }) {
+  const etapa = os.etapaAtual ?? 1;
+  const minutes = os.dataEmissao
+    ? Math.max(0, Math.floor((Date.now() - new Date(os.dataEmissao).getTime()) / 60000))
+    : 0;
   return (
-    <Link
-      to="/caminhao/$truckId"
-      params={{ truckId: truck.id }}
-      className="group block"
-    >
+    <div className="group block">
       <Card className="relative overflow-hidden border-primary/40 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/20 p-5 shadow-md transition-all hover:shadow-lg group-hover:-translate-y-0.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -270,12 +361,12 @@ function TruckCard({ truck }: { truck: Truck }) {
             </div>
             <div className="min-w-0">
               <div className="font-mono text-xs font-semibold uppercase tracking-wider text-primary">
-                {truck.os}
+                {os.os}
               </div>
               <div className="truncate font-mono text-base font-semibold text-foreground">
-                {truck.placa}
+                {os.placa}
               </div>
-              <div className="truncate text-xs text-muted-foreground">{truck.cliente}</div>
+              <div className="truncate text-xs text-muted-foreground">{os.cliente}</div>
             </div>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -284,44 +375,38 @@ function TruckCard({ truck }: { truck: Truck }) {
         <div className="mt-5 rounded-lg border bg-background/60 p-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium uppercase tracking-wider text-muted-foreground">
-              Etapa {stage.id} de {STAGES.length}
+              Etapa {etapa} de {STAGES.length}
             </span>
             <span className="flex items-center gap-1 text-muted-foreground">
               <Clock className="h-3 w-3" /> {minutes}min
             </span>
           </div>
-          <div className="mt-1 text-sm font-semibold text-foreground">{stage.name}</div>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              Checklist {progress.done}/{progress.total}
-            </span>
-            {complete && (
-              <span className="flex items-center gap-1 text-primary">
-                <CheckCircle2 className="h-3 w-3" /> Pronto p/ avançar
-              </span>
-            )}
-          </div>
-          <Progress value={pct} className="h-1.5" />
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }
 
-function EmptyState() {
+function ConcluidoCard({ os }: { os: OSCardData }) {
+  const fa = os.finalizadoAntecipado;
   return (
-    <Card className="flex flex-col items-center justify-center gap-3 border-dashed bg-gradient-to-br from-muted/30 to-muted/60 p-12 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <TruckIcon className="h-7 w-7" />
+    <Card className="flex items-start gap-3 border-emerald-300/50 bg-emerald-50/40 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+        {fa ? <FlagOff className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
       </div>
-      <div>
-        <h3 className="text-base font-semibold text-foreground">Nenhum caminhão em processo</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Cadastre um novo caminhão para iniciar a Etapa 1.
-        </p>
+      <div className="min-w-0 flex-1">
+        <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+          {os.os}
+        </div>
+        <div className="truncate font-mono text-sm font-semibold text-foreground">{os.placa}</div>
+        <div className="truncate text-xs text-muted-foreground">{os.cliente}</div>
+        {fa ? (
+          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+            Finalizado antecipadamente — Etapa {fa.etapa}
+          </div>
+        ) : (
+          <div className="mt-1 text-[10px] text-emerald-700">Concluído</div>
+        )}
       </div>
     </Card>
   );
