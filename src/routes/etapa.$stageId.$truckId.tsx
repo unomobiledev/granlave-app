@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Truck as TruckIcon, CheckCircle2, FileText } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Truck as TruckIcon, CheckCircle2, FileText, FlagOff } from "lucide-react";
 import { getStage, STAGES } from "@/data/stages";
 import { useTrucksStore, isChecklistComplete, checklistProgress, type OkNok } from "@/store/trucks";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { AppHeader } from "@/components/AppHeader";
 import { Textarea } from "@/components/ui/textarea";
 import { Stage1Wizard } from "@/components/stage1/Stage1Wizard";
+import { FinalizarAntecipadoDialog } from "@/components/stage2/FinalizarAntecipadoDialog";
 import {
   Select,
   SelectContent,
@@ -33,6 +35,8 @@ function EtapaPage() {
   const truck = useTrucksStore((s) => s.trucks.find((t) => t.id === truckId));
   const setChecklistItem = useTrucksStore((s) => s.setChecklistItem);
   const advanceStage = useTrucksStore((s) => s.advanceStage);
+  const finalizarAntecipado = useTrucksStore((s) => s.finalizarAntecipado);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
 
   if (!stage || !truck) {
     return (
@@ -52,6 +56,7 @@ function EtapaPage() {
   const pct = (progress.done / progress.total) * 100;
   const isLast = stageNum === STAGES.length;
   const isRecepcao = stageNum === 1;
+  const canFinishEarly = stageNum === 2 && !isLast;
 
   const handleAdvance = () => {
     advanceStage(truck.id);
@@ -276,6 +281,17 @@ function EtapaPage() {
             <Link to="/caminhao/$truckId" params={{ truckId: truck.id }}>
               <Button variant="outline" className="w-full sm:w-auto">Salvar e voltar</Button>
             </Link>
+            {canFinishEarly && (
+              <Button
+                variant="outline"
+                className="gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                onClick={() => setFinalizeOpen(true)}
+                disabled={!complete}
+              >
+                <FlagOff className="h-4 w-4" />
+                Finalizar serviço
+              </Button>
+            )}
             <Button onClick={handleAdvance} disabled={!complete} className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
               {isLast
@@ -286,6 +302,15 @@ function EtapaPage() {
         </Card>
         )}
       </main>
+      <FinalizarAntecipadoDialog
+        open={finalizeOpen}
+        onOpenChange={setFinalizeOpen}
+        onConfirm={({ motivo, justificativa }) => {
+          finalizarAntecipado(truck.id, { motivo, justificativa });
+          setFinalizeOpen(false);
+          navigate({ to: "/" });
+        }}
+      />
     </div>
   );
 }
