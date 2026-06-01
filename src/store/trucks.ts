@@ -24,6 +24,8 @@ type State = {
   completed: Truck[];
   osCounter: number;
   addTruck: (data: { placa: string; cliente: string; motorista: string; os?: string }) => void;
+  createDraftTruck: () => string;
+  updateTruck: (truckId: string, patch: Partial<Pick<Truck, "placa" | "cliente" | "motorista">>) => void;
   setChecklistItem: (truckId: string, stageId: number, itemId: string, value: ChecklistValue) => void;
   advanceStage: (truckId: string) => void;
   removeTruck: (truckId: string) => void;
@@ -57,6 +59,29 @@ export const useTrucksStore = create<State>()(
             ],
           };
         }),
+      createDraftTruck: () => {
+        const id = safeRandomUUID();
+        set((s) => ({
+          trucks: [
+            ...s.trucks,
+            {
+              id,
+              placa: "",
+              cliente: "",
+              motorista: "",
+              stageId: 1,
+              enteredStageAt: Date.now(),
+              createdAt: Date.now(),
+              checklists: {},
+            },
+          ],
+        }));
+        return id;
+      },
+      updateTruck: (truckId, patch) =>
+        set((s) => ({
+          trucks: s.trucks.map((t) => (t.id === truckId ? { ...t, ...patch } : t)),
+        })),
       setChecklistItem: (truckId, stageId, itemId, value) =>
         set((s) => {
           return {
@@ -117,7 +142,7 @@ export const useTrucksStore = create<State>()(
           return { trucks: seeded, completed: [], osCounter: maxOs };
         }),
     }),
-    { name: "granlave-trucks-v8" },
+    { name: "granlave-trucks-v9" },
   ),
 );
 
