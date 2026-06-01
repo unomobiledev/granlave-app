@@ -6,6 +6,13 @@ import { safeRandomUUID } from "@/lib/uuid";
 export type OkNok = { status: "ok" | "nok"; nc?: string };
 export type ChecklistValue = boolean | string | OkNok;
 
+export type FinalizacaoAntecipada = {
+  etapa: number;
+  motivo: string;
+  justificativa: string;
+  finalizadoAt: number;
+};
+
 export type Truck = {
   id: string;
   os?: string;
@@ -17,6 +24,7 @@ export type Truck = {
   createdAt: number;
   // checklist state per stage: { [stageId]: { [itemId]: ChecklistValue } }
   checklists: Record<number, Record<string, ChecklistValue>>;
+  finalizadoAntecipado?: FinalizacaoAntecipada;
 };
 
 type State = {
@@ -28,6 +36,10 @@ type State = {
   updateTruck: (truckId: string, patch: Partial<Pick<Truck, "placa" | "cliente" | "motorista">>) => void;
   setChecklistItem: (truckId: string, stageId: number, itemId: string, value: ChecklistValue) => void;
   advanceStage: (truckId: string) => void;
+  finalizarAntecipado: (
+    truckId: string,
+    payload: { motivo: string; justificativa: string },
+  ) => void;
   removeTruck: (truckId: string) => void;
   seedMock: () => void;
   resetMock: () => void;
@@ -120,6 +132,24 @@ export const useTrucksStore = create<State>()(
             ),
           };
         }),
+      finalizarAntecipado: (truckId, { motivo, justificativa }) =>
+        set((s) => {
+          const truck = s.trucks.find((t) => t.id === truckId);
+          if (!truck) return s;
+          const finalized: Truck = {
+            ...truck,
+            finalizadoAntecipado: {
+              etapa: truck.stageId,
+              motivo,
+              justificativa,
+              finalizadoAt: Date.now(),
+            },
+          };
+          return {
+            trucks: s.trucks.filter((t) => t.id !== truckId),
+            completed: [...s.completed, finalized],
+          };
+        }),
       removeTruck: (truckId) =>
         set((s) => ({ trucks: s.trucks.filter((t) => t.id !== truckId) })),
       seedMock: () =>
@@ -142,7 +172,7 @@ export const useTrucksStore = create<State>()(
           return { trucks: seeded, completed: [], osCounter: maxOs };
         }),
     }),
-    { name: "granlave-trucks-v9" },
+    { name: "granlave-trucks-v10" },
   ),
 );
 
