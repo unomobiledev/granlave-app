@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Loader2, Search, X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   const setChecklistItem = useTrucksStore((s) => s.setChecklistItem);
   const updateTruck = useTrucksStore((s) => s.updateTruck);
   const advanceStage = useTrucksStore((s) => s.advanceStage);
+  const allTrucks = useTrucksStore((s) => s.trucks);
 
   const state = truck.checklists[1] ?? {};
   const tipoVeiculo = getStr(state, "tipo_veiculo");
@@ -55,6 +56,24 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
 
   const setItem = (key: string, value: string) =>
     setChecklistItem(truck.id, 1, key, value);
+
+  // --- Próxima posição na fila (auto) ---
+  const nextPosicao = useMemo(() => {
+    const max = allTrucks.reduce((m, t) => {
+      if (t.id === truck.id) return m;
+      const raw = getStr(t.checklists[1] ?? {}, "posicao_fila");
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? Math.max(m, n) : m;
+    }, 0);
+    return String(max + 1);
+  }, [allTrucks, truck.id]);
+
+  // Pré-preenche posicao_fila no rascunho se estiver vazio
+  useEffect(() => {
+    const current = getStr(state, "posicao_fila");
+    if (!current) setItem("posicao_fila", nextPosicao);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTipo = (v: string) => {
     setItem("tipo_veiculo", v);
