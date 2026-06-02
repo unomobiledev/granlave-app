@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { STAGES } from "@/data/stages";
 import { useTrucksStore } from "@/store/trucks";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/AppHeader";
 import {
   listarOSsNaFila,
