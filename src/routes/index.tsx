@@ -7,6 +7,8 @@ import {
   Clock,
   RotateCcw,
   FlagOff,
+  Calendar,
+  User,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { STAGES } from "@/data/stages";
@@ -212,6 +214,13 @@ function EmptyBlock({ message }: { message: string }) {
   );
 }
 
+function formatData(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function QueueCard({ os, position }: { os: OSCardData; position: number }) {
   const waiting = os.dataEmissao
     ? Math.max(0, Math.floor((Date.now() - new Date(os.dataEmissao).getTime()) / 60000))
@@ -227,8 +236,15 @@ function QueueCard({ os, position }: { os: OSCardData; position: number }) {
           <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-700/80">
             {os.os}
           </div>
-          <div className="truncate font-mono text-sm font-semibold text-foreground">{os.placa}</div>
-          <div className="truncate text-xs text-muted-foreground">{os.cliente}</div>
+          <div className="truncate text-sm font-semibold text-foreground">{os.cliente}</div>
+          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+            {os.descStatus && <span className="truncate">{os.descStatus}</span>}
+            {os.dataEmissao && (
+              <span className="flex shrink-0 items-center gap-1">
+                <Calendar className="h-3 w-3" /> {formatData(os.dataEmissao)}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -258,24 +274,33 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
               <div className="font-mono text-xs font-semibold uppercase tracking-wider text-primary">
                 {os.os}
               </div>
-              <div className="truncate font-mono text-base font-semibold text-foreground">
-                {os.placa}
+              <div className="truncate text-base font-semibold text-foreground">
+                {os.cliente}
               </div>
-              <div className="truncate text-xs text-muted-foreground">{os.cliente}</div>
+              {os.responsavel && (
+                <div className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                  <User className="h-3 w-3 shrink-0" /> {os.responsavel}
+                </div>
+              )}
             </div>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </div>
 
         <div className="mt-5 rounded-lg border bg-background/60 p-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-medium uppercase tracking-wider text-muted-foreground">
-              Etapa {etapa} de {STAGES.length}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary">
+              {os.descStatus ?? `Etapa ${etapa} de ${STAGES.length}`}
             </span>
-            <span className="flex items-center gap-1 text-muted-foreground">
+            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
               <Clock className="h-3 w-3" /> {minutes}min
             </span>
           </div>
+          {os.dataEmissao && (
+            <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Calendar className="h-3 w-3" /> Comprometida em {formatData(os.dataEmissao)}
+            </div>
+          )}
         </div>
       </Card>
     </Link>
@@ -294,15 +319,20 @@ function ConcluidoCard({ os }: { os: OSCardData }) {
         <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
           {os.os}
         </div>
-        <div className="truncate font-mono text-sm font-semibold text-foreground">{os.placa}</div>
-        <div className="truncate text-xs text-muted-foreground">{os.cliente}</div>
+        <div className="truncate text-sm font-semibold text-foreground">{os.cliente}</div>
+        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+          {os.dataEmissao && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> {formatData(os.dataEmissao)}
+            </span>
+          )}
+          {os.descStatus && <span className="truncate">{os.descStatus}</span>}
+        </div>
         {fa ? (
           <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
             Finalizado antecipadamente — Etapa {fa.etapa}
           </div>
-        ) : (
-          <div className="mt-1 text-[10px] text-emerald-700">Concluído</div>
-        )}
+        ) : null}
       </div>
     </Card>
     </Link>
