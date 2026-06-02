@@ -15,23 +15,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AppHeader } from "@/components/AppHeader";
 import {
-  listarUltimasOS,
   listarOSsNaFila,
   listarOSsEmAtendimento,
   listarOSsConcluidas,
   mapOSToCardData,
-  type OS,
   type OSCardData,
 } from "@/lib/uno/os";
-import { UnoApiError } from "@/lib/uno/client";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/")({
@@ -59,9 +48,6 @@ function Index() {
         <FilaSection onReset={resetMock} />
         <AtendimentoSection />
         <ConcluidosSection />
-        <section>
-          <UltimasOSSection />
-        </section>
       </main>
     </div>
   );
@@ -194,97 +180,6 @@ function StatusBlockBody({
   }
   if (rows.length === 0) return <EmptyBlock message={emptyMessage} />;
   return <>{render(rows)}</>;
-}
-
-function UltimasOSSection() {
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["uno", "os", "ultimas", 10],
-    queryFn: () => listarUltimasOS(10),
-    retry: (count, err) => !(err instanceof UnoApiError && err.status === 401) && count < 2,
-  });
-
-  const rows = data?.content ?? [];
-
-  return (
-    <>
-      <SectionHeader
-        title="Últimas OSs (UNO ERP)"
-        count={rows.length}
-        action={
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? "Atualizando..." : "Atualizar"}
-          </Button>
-        }
-      />
-      {isLoading ? (
-        <Card className="p-4">
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-full" />
-            ))}
-          </div>
-        </Card>
-      ) : isError ? (
-        <Card className="border-destructive/40 bg-destructive/5 p-6 text-sm">
-          <p className="font-medium text-destructive">
-            Não foi possível carregar as OSs do UNO.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {(error as Error)?.message ?? "Erro desconhecido"}
-          </p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
-            Tentar novamente
-          </Button>
-        </Card>
-      ) : rows.length === 0 ? (
-        <EmptyBlock message="Nenhuma OS encontrada." />
-      ) : (
-        <Card className="overflow-hidden p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nº</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Situação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((os, i) => (
-                <TableRow key={String(os.id ?? os.numero ?? i)}>
-                  <TableCell className="font-mono text-xs">
-                    {String(os.numero ?? os.numeroOs ?? os.id ?? "—")}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {formatDate(os.dataEmissao ?? os.data)}
-                  </TableCell>
-                  <TableCell className="text-xs">{formatCliente(os)}</TableCell>
-                  <TableCell className="text-xs">
-                    {String(os.situacao ?? os.status ?? "—")}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-    </>
-  );
-}
-
-function formatDate(value: unknown): string {
-  if (!value || typeof value !== "string") return "—";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("pt-BR");
-}
-
-function formatCliente(os: OS): string {
-  if (typeof os.cliente === "string") return os.cliente;
-  if (os.cliente && typeof os.cliente === "object") {
-    return os.cliente.nome ?? os.cliente.razaoSocial ?? "—";
-  }
-  return os.clienteNome ?? "—";
 }
 
 function SectionHeader({
