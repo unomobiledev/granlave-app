@@ -39,7 +39,7 @@ export function listarUltimasOS(limit = 10) {
 // Flag única para alternar entre mock e API real.
 // Quando o contrato UNO estiver definido, trocar para `false` e ajustar
 // os endpoints abaixo. A UI não muda.
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 /**
  * Lista OSs filtradas por status.

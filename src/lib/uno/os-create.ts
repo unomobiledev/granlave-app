@@ -9,7 +9,7 @@ import { unoPost } from "./client";
  * definir como expor essas escolhas.
  */
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 export type CriarOSInput = {
   /** Código numérico do cliente no UNO. */

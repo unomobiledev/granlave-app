@@ -1,60 +1,31 @@
-## Objetivo
+# Ajustes UNO: status concluído + remover mock
 
-Substituir o mock de listagem de OSs por chamadas reais ao endpoint `GET servico/osq0001`, filtrando por `codStatus` conforme o bloco da home:
+## 1. Corrigir `codStatus` de CONCLUIDO
 
-| Bloco home              | `codStatus` |
-|-------------------------|-------------|
-| Veículos na fila        | `2`         |
-| Veículos em atendimento | `3, 4, 5`   |
-| Veículos concluídos     | `6`         |
+`src/lib/uno/os.types.ts`:
+- `OS_COD_STATUS[CONCLUIDO]` passa de `[6]` para `[9]`.
 
-A camada UNO continua reusável (mesmo padrão de `clientes.ts`/`os-detalhe.ts`), e a UI da home não muda — só passa a consumir dados reais.
+## 2. Desligar mocks (usar API real)
 
-## Mudanças
+Em todos os módulos `src/lib/uno/*`, trocar `USE_MOCK = true` por `USE_MOCK = false`:
+- `src/lib/uno/os.ts` (listagens por status)
+- `src/lib/uno/os-create.ts` (POST `servico/osf0001`)
+- `src/lib/uno/os-detalhe.ts` (GET `servico/osw0001/{codOs}/null`)
+- `src/lib/uno/clientes.ts` (se houver flag, deixar real)
 
-### 1. `src/lib/uno/os.types.ts`
+A função `listarUltimasOS` já é real (sem flag) — sem mudanças.
 
-Adicionar mapa de códigos numéricos do UNO e helper:
+## 3. Limpeza (opcional, seguro)
 
-```ts
-export const OS_COD_STATUS = {
-  AGUARDANDO_FILA: [2],
-  EM_ATENDIMENTO: [3, 4, 5],
-  CONCLUIDO: [6],
-} as const satisfies Record<OSStatus, readonly number[]>;
-```
+- Manter arquivos `*.mock.ts` no repo por enquanto (referência), mas remover imports não usados em `os.ts` se causarem warning. Caso contrário, deixar como está para reativar fácil em dev.
 
-Mantém `OSStatus` (`AGUARDANDO_FILA | EM_ATENDIMENTO | CONCLUIDO`) como hoje — é o "status lógico" da UI; o `codStatus` é o detalhe de transporte UNO.
+## 4. Verificação
 
-### 2. `src/lib/uno/os.ts`
+- Home: três blocos (`AGUARDANDO_FILA=2`, `EM_ATENDIMENTO=3,4,5`, `CONCLUIDO=9`) batem no endpoint `servico/osq0001?codStatus={n}`.
+- Criar OS no Stage1 chama POST real e usa `codOs`/`numero` retornados.
+- Clicar num card abre `/os/$codOs` com GET real `servico/osw0001/{codOs}/null`.
+- Erros 4xx/5xx aparecem no bloco de erro de cada seção (já implementado).
 
-- Substituir `listarOSsPorStatus` para:
-  1. Pegar `codStatus[]` do `OS_COD_STATUS[status]`.
-  2. Chamar `GET servico/osq0001?page=0&requiresCounts=true&size={limit}&codStatus={n}` — uma requisição por código (em `Promise.all`) e concatenar `content`. Justificativa: o CURL mostra que o endpoint aceita `codStatus` numérico simples; até confirmarmos suporte a `codStatus=3,4,5` ou repetição (`codStatus=3&codStatus=4&codStatus=5`), `Promise.all` é o caminho mais seguro e não muda a UI.
-  3. Aplicar `slice(0, limit)` no resultado final para respeitar o `limit` da UI.
-- Atualizar `mapOSToCardData` para entender também `codStatus` numérico vindo do UNO (descrição textual continua opcional).
-- `USE_MOCK` continua `true` por padrão; a chamada real só roda quando virar `false` (igual hoje).
+## Observação
 
-Pergunta em aberto (assumindo Promise.all como default): você sabe se o endpoint aceita `codStatus=3,4,5` (CSV) ou `codStatus=3&codStatus=4&codStatus=5` (repetido)? Se sim, troco para uma única chamada. Diga se quiser que eu chute uma das variantes em vez do Promise.all.
-
-### 3. Mocks (`src/lib/uno/os.mock.ts`)
-
-Adicionar `codStatus` numérico (2/4/6 — escolho 4 como representante do bloco "em atendimento") em cada `MockOS`, para o mock ficar coerente com o shape real e poder ser usado no `mapOSToCardData` sem ramos especiais.
-
-### 4. Nada muda em
-
-- `src/routes/index.tsx` — já usa `listarOSsNaFila` / `listarOSsEmAtendimento` / `listarOSsConcluidas`.
-- Hooks/Query keys — continuam por `OSStatus` lógico.
-- `os-detalhe.ts` e `os-create.ts` — fora de escopo.
-
-## Verificação
-
-1. Com `USE_MOCK=true`: home continua exibindo os 3 blocos com mocks (sem regressão visual).
-2. Com `USE_MOCK=false` e token no `localStorage`: aba Network mostra `GET servico/osq0001?...&codStatus=2`, `...&codStatus=3`, `...&codStatus=4`, `...&codStatus=5`, `...&codStatus=6`. Cards renderizam os dados reais.
-3. Erro de rede: `errorComponent` da home aparece, app não quebra.
-
-## Fora de escopo
-
-- Paginação real (continuamos com `page=0&size=limit`).
-- Ordenação/filtros adicionais (placa, cliente, data).
-- Troca do `USE_MOCK` para `false` por padrão — fica a seu critério.
+O network log mostra `500` em `servico/osq0001` sem `codStatus`. Após esta mudança, as chamadas serão sempre com `codStatus={n}` (uma por código), o que deve resolver o 500 caso o backend exija o filtro. Se persistir, investigamos o payload de erro.

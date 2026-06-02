@@ -14,7 +14,7 @@ export type Cliente = {
 
 // Quando as APIs reais da UNO estiverem definidas, basta trocar USE_MOCK = false
 // e ajustar os endpoints abaixo.
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 /**
  * Busca o último cliente atendido para uma placa específica.
