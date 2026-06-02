@@ -20,6 +20,9 @@ import {
 } from "@/lib/uno/clientes";
 import { criarOS } from "@/lib/uno/os-create";
 import { ClientePicker } from "./ClientePicker";
+import { ProdutoHigienizacaoPicker } from "./ProdutoHigienizacaoPicker";
+import { formatPlaca } from "@/lib/format/placa";
+import { type ProdutoHigienizacao } from "@/lib/uno/produtos-higienizacao";
 
 const TIPO_VEICULO_OPTIONS: { label: string; placas: number }[] = [
   { label: "Truck Tanque (1 placa)", placas: 1 },
@@ -86,9 +89,9 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   };
 
   const setPlaca = (idx: 1 | 2 | 3, value: string) => {
-    const up = value.toUpperCase();
-    setItem(`placa_${idx}`, up);
-    if (idx === 1) updateTruck(truck.id, { placa: up });
+    const masked = formatPlaca(value);
+    setItem(`placa_${idx}`, masked);
+    if (idx === 1) updateTruck(truck.id, { placa: masked });
   };
 
   // --- Lookup por placa ---
@@ -238,6 +241,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   value={placa1}
                   onChange={(e) => setPlaca(1, e.target.value)}
                   placeholder="ABC-1D23"
+                  maxLength={8}
                   className="flex-1 font-mono uppercase"
                 />
                 <Button
@@ -264,6 +268,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   value={placa2}
                   onChange={(e) => setPlaca(2, e.target.value)}
                   placeholder="ABC-1D23"
+                  maxLength={8}
                   className="font-mono uppercase"
                 />
               </div>
@@ -276,6 +281,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   value={placa3}
                   onChange={(e) => setPlaca(3, e.target.value)}
                   placeholder="ABC-1D23"
+                  maxLength={8}
                   className="font-mono uppercase"
                 />
               </div>
