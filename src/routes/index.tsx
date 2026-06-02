@@ -216,7 +216,12 @@ function QueueCard({ os, position }: { os: OSCardData; position: number }) {
     ? Math.max(0, Math.floor((Date.now() - new Date(os.dataEmissao).getTime()) / 60000))
     : 0;
   return (
-    <Link to="/os/$codOs" params={{ codOs: os.codOs }} className="group block">
+    <Link
+      to="/os/$codOs"
+      params={{ codOs: os.codOs }}
+      search={{ atend: os.codAtendimento ?? 0 }}
+      className="group block"
+    >
       <Card className="flex items-center gap-3 border-amber-300/60 bg-gradient-to-br from-amber-50 to-amber-100/60 p-4 transition-all hover:shadow-md group-hover:-translate-y-0.5">
         <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-amber-500 font-bold leading-none text-white">
           <span className="text-lg">{position}º</span>
@@ -253,7 +258,12 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
     ? Math.max(0, Math.floor((Date.now() - new Date(os.dataEmissao).getTime()) / 60000))
     : 0;
   return (
-    <Link to="/os/$codOs" params={{ codOs: os.codOs }} className="group block">
+    <Link
+      to="/os/$codOs"
+      params={{ codOs: os.codOs }}
+      search={{ atend: os.codAtendimento ?? 0 }}
+      className="group block"
+    >
       <Card className="relative overflow-hidden border-primary/40 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/20 p-5 shadow-md transition-all hover:shadow-lg group-hover:-translate-y-0.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -300,7 +310,12 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
 function ConcluidoCard({ os }: { os: OSCardData }) {
   const fa = os.finalizadoAntecipado;
   return (
-    <Link to="/os/$codOs" params={{ codOs: os.codOs }} className="group block">
+    <Link
+      to="/os/$codOs"
+      params={{ codOs: os.codOs }}
+      search={{ atend: os.codAtendimento ?? 0 }}
+      className="group block"
+    >
     <Card className="flex items-start gap-3 border-emerald-300/50 bg-emerald-50/40 p-4 transition-all hover:shadow-md group-hover:-translate-y-0.5">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
         {fa ? <FlagOff className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
