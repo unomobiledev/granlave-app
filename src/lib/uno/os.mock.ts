@@ -53,6 +53,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "Via Group Participações",
     dataEmissao: minutesAgo(50),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 1,
   },
   {
@@ -62,6 +63,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "Cargill Agrícola",
     dataEmissao: minutesAgo(75),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 2,
   },
   {
@@ -71,6 +73,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "BRF S.A.",
     dataEmissao: minutesAgo(110),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 3,
   },
   {
@@ -80,6 +83,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "Bunge Alimentos",
     dataEmissao: minutesAgo(165),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 4,
   },
 ];
