@@ -7,6 +7,7 @@ export type MockOS = {
   cliente: string;
   dataEmissao: string;
   situacao: OSStatus;
+  codStatus?: number;
   etapaAtual?: number;
   finalizadoAntecipado?: { etapa: number; motivo: string };
 };
@@ -22,6 +23,7 @@ const FILA: MockOS[] = [
     cliente: "JBS Foods",
     dataEmissao: minutesAgo(12),
     situacao: OS_STATUS.AGUARDANDO_FILA,
+    codStatus: 2,
   },
   {
     id: "fila-2",
@@ -30,6 +32,7 @@ const FILA: MockOS[] = [
     cliente: "Marfrig",
     dataEmissao: minutesAgo(7),
     situacao: OS_STATUS.AGUARDANDO_FILA,
+    codStatus: 2,
   },
   {
     id: "fila-3",
@@ -38,6 +41,7 @@ const FILA: MockOS[] = [
     cliente: "Minerva Foods",
     dataEmissao: minutesAgo(3),
     situacao: OS_STATUS.AGUARDANDO_FILA,
+    codStatus: 2,
   },
 ];
 
@@ -49,6 +53,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "Via Group Participações",
     dataEmissao: minutesAgo(50),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 1,
   },
   {
@@ -58,6 +63,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "Cargill Agrícola",
     dataEmissao: minutesAgo(75),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 2,
   },
   {
@@ -67,6 +73,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "BRF S.A.",
     dataEmissao: minutesAgo(110),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 3,
   },
   {
@@ -76,6 +83,7 @@ const ATENDIMENTO: MockOS[] = [
     cliente: "Bunge Alimentos",
     dataEmissao: minutesAgo(165),
     situacao: OS_STATUS.EM_ATENDIMENTO,
+    codStatus: 4,
     etapaAtual: 4,
   },
 ];
@@ -88,6 +96,7 @@ const CONCLUIDAS: MockOS[] = [
     cliente: "Cargill Agrícola",
     dataEmissao: minutesAgo(220),
     situacao: OS_STATUS.CONCLUIDO,
+    codStatus: 6,
   },
   {
     id: "c-2",
@@ -96,6 +105,7 @@ const CONCLUIDAS: MockOS[] = [
     cliente: "BRF S.A.",
     dataEmissao: minutesAgo(310),
     situacao: OS_STATUS.CONCLUIDO,
+    codStatus: 6,
   },
   {
     id: "c-3",
@@ -104,6 +114,7 @@ const CONCLUIDAS: MockOS[] = [
     cliente: "JBS Foods",
     dataEmissao: minutesAgo(420),
     situacao: OS_STATUS.CONCLUIDO,
+    codStatus: 6,
     finalizadoAntecipado: { etapa: 2, motivo: "Não requer secagem" },
   },
   {
@@ -113,6 +124,7 @@ const CONCLUIDAS: MockOS[] = [
     cliente: "Bunge Alimentos",
     dataEmissao: minutesAgo(540),
     situacao: OS_STATUS.CONCLUIDO,
+    codStatus: 6,
   },
 ];
 
