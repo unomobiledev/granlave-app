@@ -1,26 +1,28 @@
-## Plano
+## Problema
 
-A API `osq0001` retorna `codOs`, `nomeCliente`, `dtComprometida`, `codStatus`, `descAbrevStatus`, `nomeResponsavel`, `prioridade` — mas o mapper espera `numero`/`placa`/`cliente` (campos antigos/mock). Por isso os cards aparecem vazios.
+O endpoint correto é `servico/osw0001/{codOs}/{codAtendimento}` (ex.: `/28/1`). Hoje `src/lib/uno/os-detalhe.ts` chama `/{codOs}/null`, o que retorna **UNO API 400**.
 
-### 1. `src/lib/uno/os.ts`
-- Atualizar tipo `OS` para refletir o shape real: `codOs`, `codCliente`, `nomeCliente`, `nomeResponsavel`, `codResponsavel`, `dtComprometida`, `prioridade`, `descAbrevStatus`, `codStatus`. Manter campos legados como opcionais para retro-compat com mock.
-- Reescrever `mapOSToCardData`:
-  - `id` / `codOs` ← `String(os.codOs)`
-  - `os` (label) ← `"OS-" + codOs`
-  - `cliente` ← `os.nomeCliente ?? "—"`
-  - `dataEmissao` ← `os.dtComprometida ?? os.dataEmissao ?? os.data`
-  - `situacao` ← `os.descAbrevStatus ?? situacaoFromCodStatus(os.codStatus) ?? "—"`
-  - Novos campos no `OSCardData`: `descStatus?: string`, `responsavel?: string`, `prioridade?: number`. `placa` torna-se opcional (não vem da lista).
+O `codAtendimento` vem da listagem `osq0001` (já presente no payload). Precisamos propagá-lo da home até a página de detalhe.
 
-### 2. `src/routes/index.tsx` — ajustar os 3 cards
-Remover linha de placa (não existe no payload de lista) e mostrar campos que existem:
+## Mudanças
 
-- **QueueCard** (fila): badge posição + `OS-{codOs}`, `{nomeCliente}` em destaque, rodapé com `{descAbrevStatus}` e data comprometida formatada (`dd/MM`). Tempo de espera continua via `dataEmissao`.
-- **AtendimentoCard**: ícone caminhão + `OS-{codOs}` + `{nomeCliente}`. Bloco inferior passa a mostrar `{descAbrevStatus}` (badge) + `{nomeResponsavel}` + data comprometida. Mantém minutos.
-- **ConcluidoCard**: ícone check + `OS-{codOs}` + `{nomeCliente}` + data comprometida + `{descAbrevStatus}`.
+### 1. `src/lib/uno/os-detalhe.ts`
+- `buscarOSPorCodigo(codOs, codAtendimento)` → monta `servico/osw0001/{codOs}/{codAtendimento}`.
+- `codAtendimento` obrigatório (number/string). Sem fallback para `null`.
 
-Adicionar helper local `formatData(iso)` → `dd/MM/yyyy` em pt-BR (ou `—` se vazio).
+### 2. `src/routes/os.$codOs.tsx`
+- Aceitar `codAtendimento` via search param (`?atend=1`) usando `validateSearch`.
+- Passar para `buscarOSPorCodigo` no `loader` e na `queryKey` (`["uno","os","detalhe", codOs, codAtendimento]`).
+- Se `codAtendimento` ausente → mostrar erro amigável ("atendimento não informado").
+
+### 3. `src/lib/uno/os.ts` (`OSCardData`)
+- Adicionar `codAtendimento?: number` e preencher em `mapOSToCardData` a partir de `os.codAtendimento`.
+
+### 4. `src/routes/index.tsx`
+- Nos `<Link to="/os/$codOs">` dos 3 cards, incluir `search={{ atend: card.codAtendimento }}` (quando existir).
 
 ### Arquivos
+- editado: `src/lib/uno/os-detalhe.ts`
+- editado: `src/routes/os.$codOs.tsx`
 - editado: `src/lib/uno/os.ts`
 - editado: `src/routes/index.tsx`

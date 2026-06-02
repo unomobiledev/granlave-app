@@ -6,18 +6,32 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { buscarOSPorCodigo, type OSDetalhe } from "@/lib/uno/os-detalhe";
 
-const osDetalheQueryOptions = (codOs: string) =>
+const osDetalheQueryOptions = (codOs: string, codAtendimento: number) =>
   queryOptions({
-    queryKey: ["uno", "os", "detalhe", codOs],
-    queryFn: () => buscarOSPorCodigo(codOs),
+    queryKey: ["uno", "os", "detalhe", codOs, codAtendimento],
+    queryFn: () => buscarOSPorCodigo(codOs, codAtendimento),
   });
 
+type OSDetalheSearch = { atend: number };
+
+function validateOSDetalheSearch(input: Record<string, unknown>): OSDetalheSearch {
+  const raw = input?.atend;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return { atend: Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0 };
+}
+
 export const Route = createFileRoute("/os/$codOs")({
+  validateSearch: validateOSDetalheSearch,
   head: ({ params }) => ({
     meta: [{ title: `OS ${params.codOs} — GranLave` }],
   }),
-  loader: ({ params, context }) =>
-    context.queryClient.ensureQueryData(osDetalheQueryOptions(params.codOs)),
+  loaderDeps: ({ search }: { search: OSDetalheSearch }) => ({ atend: search.atend }),
+  loader: ({ params, deps, context }: { params: { codOs: string }; deps: { atend: number }; context: { queryClient: import("@tanstack/react-query").QueryClient } }) => {
+    if (!deps.atend) return;
+    return context.queryClient.ensureQueryData(
+      osDetalheQueryOptions(params.codOs, deps.atend),
+    );
+  },
   errorComponent: ({ error }) => (
     <div className="min-h-full bg-muted/30">
       <AppHeader />
@@ -44,7 +58,27 @@ export const Route = createFileRoute("/os/$codOs")({
 
 function OSDetalhePage() {
   const { codOs } = Route.useParams();
-  const { data } = useSuspenseQuery(osDetalheQueryOptions(codOs));
+  const { atend } = Route.useSearch();
+
+  if (!atend) {
+    return (
+      <div className="min-h-full bg-muted/30">
+        <AppHeader />
+        <main className="mx-auto max-w-3xl px-6 py-8">
+          <Card className="border-destructive/40 bg-destructive/5 p-4 text-sm">
+            <p className="font-medium text-destructive">
+              Atendimento não informado.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              É necessário acessar a OS pela lista para incluir o código de atendimento.
+            </p>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  const { data } = useSuspenseQuery(osDetalheQueryOptions(codOs, atend));
 
   return (
     <div className="min-h-full bg-muted/30">

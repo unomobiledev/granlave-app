@@ -105,6 +105,7 @@ export type OSCardData = {
   descStatus?: string;
   responsavel?: string;
   prioridade?: number;
+  codAtendimento?: number;
   etapaAtual?: number;
   finalizadoAntecipado?: { etapa: number; motivo: string };
 };
@@ -141,6 +142,7 @@ export function mapOSToCardData(os: OS): OSCardData {
     descStatus,
     responsavel: os.nomeResponsavel,
     prioridade: typeof os.prioridade === "number" ? os.prioridade : undefined,
+    codAtendimento: typeof os.codAtendimento === "number" ? os.codAtendimento : undefined,
     etapaAtual,
     finalizadoAntecipado: fa,
   };
