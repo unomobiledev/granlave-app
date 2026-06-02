@@ -1,7 +1,6 @@
 import { unoGet, unoPost } from "./client";
 import {
   mockBuscarUltimoClientePorPlaca,
-  mockBuscarClientes,
   mockCadastrarCliente,
 } from "./clientes.mock";
 
@@ -11,6 +10,67 @@ export type Cliente = {
   nomeFantasia: string;
   cnpj: string;
 };
+
+/** Shape bruto retornado pelo endpoint cdw0101 do UNO. */
+export type ClienteUno = {
+  codCliente: number;
+  nomeCliente?: string;
+  razaoSocial?: string;
+  cnpj?: string;
+  tipo?: string;
+  cidade?: string;
+  siglaUf?: string;
+  situacao?: number;
+  descricaoSituacao?: string;
+  [key: string]: unknown;
+};
+
+type PageResponse<T> = {
+  content: T[];
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+};
+
+export type ClientesPage = {
+  items: Cliente[];
+  raw: ClienteUno[];
+  page: number;
+  totalPages: number;
+  totalElements: number;
+};
+
+function mapClienteUno(c: ClienteUno): Cliente {
+  return {
+    id: String(c.codCliente),
+    razaoSocial: c.razaoSocial ?? c.nomeCliente ?? "—",
+    nomeFantasia: c.nomeCliente ?? c.razaoSocial ?? "—",
+    cnpj: c.cnpj ?? "",
+  };
+}
+
+/**
+ * Lista clientes ativos paginados.
+ * Endpoint UNO: GET cadastro/cdw0101?page={n}&situacao=1&requiresCounts=true&size={size}
+ */
+export async function listarClientesPaginado(
+  opts: { page?: number; size?: number } = {},
+): Promise<ClientesPage> {
+  const page = opts.page ?? 0;
+  const size = opts.size ?? 20;
+  const resp = await unoGet<PageResponse<ClienteUno>>(
+    `cadastro/cdw0101?page=${page}&situacao=1&requiresCounts=true&size=${size}`,
+  );
+  const raw = resp.content ?? [];
+  return {
+    items: raw.map(mapClienteUno),
+    raw,
+    page: resp.number ?? page,
+    totalPages: resp.totalPages ?? 1,
+    totalElements: resp.totalElements ?? raw.length,
+  };
+}
 
 // Quando as APIs reais da UNO estiverem definidas, basta trocar USE_MOCK = false
 // e ajustar os endpoints abaixo.
@@ -24,18 +84,6 @@ const USE_MOCK = false;
 export async function buscarUltimoClientePorPlaca(placa: string): Promise<Cliente | null> {
   if (USE_MOCK) return mockBuscarUltimoClientePorPlaca(placa);
   return unoGet<Cliente | null>(`cliente/by-placa/${encodeURIComponent(placa)}`);
-}
-
-/**
- * Busca clientes por nome/razão social/CNPJ.
- * TODO(UNO): substituir mock pela chamada real.
- * Endpoint sugerido: GET /cliente?q={query}&size={limit}
- */
-export async function buscarClientes(query: string, limit = 10): Promise<Cliente[]> {
-  if (USE_MOCK) return mockBuscarClientes(query, limit);
-  return unoGet<Cliente[]>(
-    `cliente?q=${encodeURIComponent(query)}&size=${limit}`,
-  );
 }
 
 /**
