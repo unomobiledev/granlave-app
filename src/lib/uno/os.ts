@@ -8,6 +8,19 @@ import { OS_STATUS, OS_COD_STATUS, type OSStatus } from "./os.types";
 export { OS_STATUS, type OSStatus };
 
 export type OS = {
+  // Shape real retornado por /servico/osq0001
+  codOs?: number | string;
+  codAtendimento?: number;
+  codEmpresa?: number;
+  prioridade?: number;
+  dtComprometida?: string;
+  codCliente?: number;
+  nomeCliente?: string;
+  codResponsavel?: number;
+  nomeResponsavel?: string;
+  codStatus?: number;
+  descAbrevStatus?: string;
+  // Campos legados/mock — mantidos opcionais para retro-compat
   id?: string | number;
   numero?: string | number;
   numeroOs?: string | number;
@@ -17,7 +30,6 @@ export type OS = {
   clienteNome?: string;
   situacao?: string;
   status?: string;
-  codStatus?: number;
   placa?: string;
   [key: string]: unknown;
 };
@@ -86,36 +98,49 @@ export type OSCardData = {
   id: string;
   codOs: string;
   os: string;
-  placa: string;
+  placa?: string;
   cliente: string;
   dataEmissao?: string;
   situacao: OSStatus | string;
+  descStatus?: string;
+  responsavel?: string;
+  prioridade?: number;
   etapaAtual?: number;
   finalizadoAntecipado?: { etapa: number; motivo: string };
 };
 
 export function mapOSToCardData(os: OS): OSCardData {
   const cliente =
-    typeof os.cliente === "string"
+    os.nomeCliente ??
+    (typeof os.cliente === "string"
       ? os.cliente
-      : os.cliente?.nome ?? os.cliente?.razaoSocial ?? os.clienteNome ?? "—";
-  const numero = String(os.numero ?? os.numeroOs ?? os.id ?? "—");
+      : os.cliente?.nome ?? os.cliente?.razaoSocial) ??
+    os.clienteNome ??
+    "—";
+  const codOs = String(os.codOs ?? os.id ?? os.numero ?? os.numeroOs ?? "—");
+  const label = `OS-${codOs}`;
   const etapaRaw = (os as Record<string, unknown>).etapaAtual;
   const etapaAtual = typeof etapaRaw === "number" ? etapaRaw : undefined;
   const fa = (os as Record<string, unknown>).finalizadoAntecipado as
     | { etapa: number; motivo: string }
     | undefined;
-  const codOs = String(os.id ?? os.numero ?? os.numeroOs ?? numero);
-  const situacao =
-    (os.situacao ?? os.status ?? situacaoFromCodStatus(os.codStatus) ?? "—") as string;
+  const descStatus =
+    os.descAbrevStatus ??
+    os.situacao ??
+    os.status ??
+    situacaoFromCodStatus(os.codStatus) ??
+    undefined;
   return {
     id: codOs,
     codOs,
-    os: numero,
-    placa: String(os.placa ?? "—"),
+    os: label,
+    placa: os.placa ? String(os.placa) : undefined,
     cliente,
-    dataEmissao: os.dataEmissao ?? os.data,
-    situacao,
+    dataEmissao: os.dtComprometida ?? os.dataEmissao ?? os.data,
+    situacao: descStatus ?? "—",
+    descStatus,
+    responsavel: os.nomeResponsavel,
+    prioridade: typeof os.prioridade === "number" ? os.prioridade : undefined,
     etapaAtual,
     finalizadoAntecipado: fa,
   };
