@@ -20,6 +20,9 @@ import {
 } from "@/lib/uno/clientes";
 import { criarOS } from "@/lib/uno/os-create";
 import { ClientePicker } from "./ClientePicker";
+import { ProdutoHigienizacaoPicker } from "./ProdutoHigienizacaoPicker";
+import { formatPlaca } from "@/lib/format/placa";
+import { type ProdutoHigienizacao } from "@/lib/uno/produtos-higienizacao";
 
 const TIPO_VEICULO_OPTIONS: { label: string; placas: number }[] = [
   { label: "Truck Tanque (1 placa)", placas: 1 },
@@ -86,9 +89,9 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   };
 
   const setPlaca = (idx: 1 | 2 | 3, value: string) => {
-    const up = value.toUpperCase();
-    setItem(`placa_${idx}`, up);
-    if (idx === 1) updateTruck(truck.id, { placa: up });
+    const masked = formatPlaca(value);
+    setItem(`placa_${idx}`, masked);
+    if (idx === 1) updateTruck(truck.id, { placa: masked });
   };
 
   // --- Lookup por placa ---
@@ -238,6 +241,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   value={placa1}
                   onChange={(e) => setPlaca(1, e.target.value)}
                   placeholder="ABC-1D23"
+                  maxLength={8}
                   className="flex-1 font-mono uppercase"
                 />
                 <Button
@@ -264,6 +268,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   value={placa2}
                   onChange={(e) => setPlaca(2, e.target.value)}
                   placeholder="ABC-1D23"
+                  maxLength={8}
                   className="font-mono uppercase"
                 />
               </div>
@@ -276,6 +281,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   value={placa3}
                   onChange={(e) => setPlaca(3, e.target.value)}
                   placeholder="ABC-1D23"
+                  maxLength={8}
                   className="font-mono uppercase"
                 />
               </div>
@@ -370,13 +376,27 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
               onChange={(v) => setItem("sistema_higienizacao", v)}
               options={["Vapor", "Água quente"]}
             />
-            <SelectField
-              label="Produto de higienização"
-              id="produto_higienizacao"
-              value={getStr(state, "produto_higienizacao")}
-              onChange={(v) => setItem("produto_higienizacao", v)}
-              options={["Detergente", "Álcool"]}
-            />
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-sm font-medium">Produto de higienização</Label>
+              <ProdutoHigienizacaoPicker
+                selected={
+                  getStr(state, "produto_higienizacao_id")
+                    ? {
+                        id: getStr(state, "produto_higienizacao_id"),
+                        codProduto: getStr(state, "produto_higienizacao_id"),
+                        descComercial: getStr(state, "produto_higienizacao"),
+                        descTecnica: getStr(state, "produto_higienizacao"),
+                        un: getStr(state, "produto_higienizacao_un"),
+                      }
+                    : undefined
+                }
+                onSelect={(p: ProdutoHigienizacao) => {
+                  setItem("produto_higienizacao", p.descComercial);
+                  setItem("produto_higienizacao_id", p.codProduto);
+                  setItem("produto_higienizacao_un", p.un);
+                }}
+              />
+            </div>
             <Field label="Registro Anvisa" id="anvisa" value={getStr(state, "anvisa")} onChange={(v) => setItem("anvisa", v)} />
             <Field label="Nº do lote" id="lote" value={getStr(state, "lote")} onChange={(v) => setItem("lote", v)} />
             <Field label="Posição na fila" id="posicao_fila" value={getStr(state, "posicao_fila")} onChange={(v) => setItem("posicao_fila", v)} />
