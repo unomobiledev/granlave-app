@@ -1,92 +1,72 @@
-import { useEffect, useState } from "react";
-import { Search, UserPlus, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { Search, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { buscarClientes, type Cliente } from "@/lib/uno/clientes";
+import { type Cliente } from "@/lib/uno/clientes";
 import { NovoClienteDialog } from "./NovoClienteDialog";
+import { ClienteSearchDialog } from "./ClienteSearchDialog";
 
 export function ClientePicker({
   onSelect,
-  autoFocus,
+  selected,
+  autoFocus: _autoFocus,
 }: {
   onSelect: (cliente: Cliente) => void;
+  selected?: Cliente;
   autoFocus?: boolean;
 }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const data = await buscarClientes(query);
-        if (!cancelled) setResults(data);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [query]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [novoOpen, setNovoOpen] = useState(false);
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          autoFocus={autoFocus}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por razão social, fantasia ou CNPJ..."
-          className="pl-9"
-        />
-      </div>
-
-      <Card className="max-h-64 overflow-auto p-1">
-        {loading ? (
-          <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" /> Buscando...
-          </div>
-        ) : results.length === 0 ? (
-          <div className="p-3 text-xs text-muted-foreground">
-            Nenhum cliente encontrado.
-          </div>
-        ) : (
-          results.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onSelect(c)}
-              className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
-            >
-              <span className="font-medium text-foreground">{c.razaoSocial}</span>
-              <span className="text-xs text-muted-foreground">
-                {c.nomeFantasia} · {c.cnpj}
-              </span>
-            </button>
-          ))
-        )}
+      <Card className="flex items-center gap-3 p-3">
+        <div className="min-w-0 flex-1">
+          {selected ? (
+            <>
+              <div className="truncate text-sm font-semibold text-foreground">
+                {selected.razaoSocial}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">
+                {selected.nomeFantasia}
+                {selected.cnpj ? ` · ${selected.cnpj}` : ""}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              Nenhum cliente selecionado
+            </div>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Buscar cliente"
+          onClick={() => setSearchOpen(true)}
+        >
+          <Search className="h-4 w-4" />
+        </Button>
       </Card>
 
       <Button
         type="button"
         variant="outline"
         className="w-full gap-2"
-        onClick={() => setDialogOpen(true)}
+        onClick={() => setNovoOpen(true)}
       >
         <UserPlus className="h-4 w-4" /> Cadastrar novo cliente
       </Button>
 
+      <ClienteSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelect={onSelect}
+      />
       <NovoClienteDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        initialQuery={query}
+        open={novoOpen}
+        onOpenChange={setNovoOpen}
+        initialQuery=""
         onCreated={(c) => onSelect(c)}
       />
     </div>
