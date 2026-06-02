@@ -25,8 +25,8 @@ export const Route = createFileRoute("/os/$codOs")({
   head: ({ params }) => ({
     meta: [{ title: `OS ${params.codOs} — GranLave` }],
   }),
-  loaderDeps: ({ search }) => ({ atend: search.atend }),
-  loader: ({ params, deps, context }) => {
+  loaderDeps: ({ search }: { search: OSDetalheSearch }) => ({ atend: search.atend }),
+  loader: ({ params, deps, context }: { params: { codOs: string }; deps: { atend: number }; context: { queryClient: import("@tanstack/react-query").QueryClient } }) => {
     if (!deps.atend) return;
     return context.queryClient.ensureQueryData(
       osDetalheQueryOptions(params.codOs, deps.atend),
