@@ -9,7 +9,7 @@ import { unoGet } from "./client";
  * (filial? variante?) quando for definido.
  */
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 export type OSDetalhe = {
   codOs: number | string;
