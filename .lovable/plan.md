@@ -1,21 +1,19 @@
-# Remover bloco "Últimas OSs (UNO ERP)"
+## Ajustar nome do parâmetro: `codStatus` → `status`
 
-## Mudanças
+A API UNO usa `status=` (não `codStatus=`). Os códigos numéricos permanecem os mesmos definidos em `OS_COD_STATUS`:
 
-1. **`src/routes/index.tsx`**
-   - Remover a `<section>` que renderiza `<UltimasOSSection />`.
-   - Remover o componente `UltimasOSSection` e os helpers usados só por ele (`formatDate`, `formatCliente`).
-   - Remover imports não mais usados: `listarUltimasOS`, `type OS`, `UnoApiError`, `Table/TableBody/TableCell/TableHead/TableHeader/TableRow`.
-   - Manter os imports de `Skeleton`, `Card`, etc. que continuam usados pelos outros blocos.
+- Fila → `status=2`
+- Em atendimento → `status=3`, `status=4`, `status=5` (3 chamadas paralelas)
+- Concluído → `status=9`
 
-2. **`src/lib/uno/os.ts`**
-   - Manter `listarUltimasOS` exportada por enquanto (não custa nada e pode ser útil em outra tela), **ou** remover se você preferir limpeza total. Default do plano: **manter** (não há outros consumidores agora, mas é a única chamada "genérica" disponível).
+### Mudanças
 
-## Resultado
+**`src/lib/uno/os.ts`** — em `listarOSsPorStatus`, trocar a querystring de cada chamada paralela:
 
-Home passa a ter apenas 3 blocos, todos filtrados por `codStatus`:
-- Fila → `codStatus=2`
-- Em atendimento → `codStatus=3,4,5` (3 chamadas paralelas)
-- Concluídos → `codStatus=9`
+```
+servico/osq0001?page=0&requiresCounts=true&size={limit}&status={cod}
+```
 
-Nenhuma chamada a `servico/osq0001` sem `codStatus` será mais disparada pela home.
+(antes era `&codStatus={cod}`)
+
+Nada mais muda — o mapeamento `OS_COD_STATUS`, o fan-out em paralelo (1 chamada por código) e o `mapOSToCardData` continuam iguais.

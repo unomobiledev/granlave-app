@@ -55,13 +55,13 @@ export async function listarOSsPorStatus(
     const rows = await mockListarOSsPorStatus(status, { limit });
     return rows.map(mockToOS);
   }
-  // O endpoint aceita `codStatus` numérico; até confirmarmos suporte a CSV ou
-  // repetição da query string, fazemos uma chamada por código em paralelo.
+  // O endpoint aceita `status` numérico; fazemos uma chamada por código
+  // em paralelo (1 request por status).
   const codigos = OS_COD_STATUS[status];
   const pages = await Promise.all(
     codigos.map((cod) =>
       unoGet<PageResponse<OS>>(
-        `servico/osq0001?page=0&requiresCounts=true&size=${limit}&codStatus=${cod}`,
+        `servico/osq0001?page=0&requiresCounts=true&size=${limit}&status=${cod}`,
       ),
     ),
   );
