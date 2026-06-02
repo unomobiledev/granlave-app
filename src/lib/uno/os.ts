@@ -106,6 +106,8 @@ export function mapOSToCardData(os: OS): OSCardData {
     | { etapa: number; motivo: string }
     | undefined;
   const codOs = String(os.id ?? os.numero ?? os.numeroOs ?? numero);
+  const situacao =
+    (os.situacao ?? os.status ?? situacaoFromCodStatus(os.codStatus) ?? "—") as string;
   return {
     id: codOs,
     codOs,
@@ -113,10 +115,21 @@ export function mapOSToCardData(os: OS): OSCardData {
     placa: String(os.placa ?? "—"),
     cliente,
     dataEmissao: os.dataEmissao ?? os.data,
-    situacao: (os.situacao ?? os.status ?? "—") as string,
+    situacao,
     etapaAtual,
     finalizadoAntecipado: fa,
   };
+}
+
+function situacaoFromCodStatus(cod?: number): OSStatus | undefined {
+  if (cod == null) return undefined;
+  for (const [status, codes] of Object.entries(OS_COD_STATUS) as [
+    OSStatus,
+    readonly number[],
+  ][]) {
+    if (codes.includes(cod)) return status;
+  }
+  return undefined;
 }
 
 function mockToOS(m: MockOS): OS {
@@ -127,6 +140,7 @@ function mockToOS(m: MockOS): OS {
     cliente: m.cliente,
     dataEmissao: m.dataEmissao,
     situacao: m.situacao,
+    codStatus: m.codStatus,
     etapaAtual: m.etapaAtual,
     finalizadoAntecipado: m.finalizadoAntecipado,
   } as OS;
