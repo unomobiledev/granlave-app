@@ -105,6 +105,7 @@ export type OSCardData = {
   descStatus?: string;
   responsavel?: string;
   prioridade?: number;
+  codAtendimento?: number;
   etapaAtual?: number;
   finalizadoAntecipado?: { etapa: number; motivo: string };
 };
