@@ -1,7 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { zodValidator, fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
@@ -14,12 +12,16 @@ const osDetalheQueryOptions = (codOs: string, codAtendimento: number) =>
     queryFn: () => buscarOSPorCodigo(codOs, codAtendimento),
   });
 
-const searchSchema = z.object({
-  atend: fallback(z.number().int(), 0).default(0),
-});
+type OSDetalheSearch = { atend: number };
+
+function validateOSDetalheSearch(input: Record<string, unknown>): OSDetalheSearch {
+  const raw = input?.atend;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return { atend: Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0 };
+}
 
 export const Route = createFileRoute("/os/$codOs")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: validateOSDetalheSearch,
   head: ({ params }) => ({
     meta: [{ title: `OS ${params.codOs} — GranLave` }],
   }),
