@@ -311,7 +311,20 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                   Nenhum cliente vinculado a essa placa. Busque ou cadastre um novo.
                 </p>
               )}
-              <ClientePicker onSelect={selecionarCliente} autoFocus />
+              <ClientePicker
+                onSelect={selecionarCliente}
+                selected={
+                  clienteId
+                    ? {
+                        id: clienteId,
+                        razaoSocial: clienteRazao,
+                        nomeFantasia: getStr(state, "cliente_fantasia"),
+                        cnpj: getStr(state, "cliente_cnpj"),
+                      }
+                    : undefined
+                }
+                autoFocus
+              />
               {clienteId && (
                 <Button
                   variant="ghost"
