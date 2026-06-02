@@ -1,19 +1,9 @@
-## Ajustar nome do parâmetro: `codStatus` → `status`
+## Ajustar códigos de status do UNO
 
-A API UNO usa `status=` (não `codStatus=`). Os códigos numéricos permanecem os mesmos definidos em `OS_COD_STATUS`:
+Atualizar o mapa `OS_COD_STATUS` em `src/lib/uno/os.types.ts` para os códigos corretos do UNO:
 
-- Fila → `status=2`
-- Em atendimento → `status=3`, `status=4`, `status=5` (3 chamadas paralelas)
-- Concluído → `status=9`
+- `AGUARDANDO_FILA` → `[1, 2]` (Recepção, Veículo na fila)
+- `EM_ATENDIMENTO` → `[3, 4, 5]` (Higienização, Secagem, Liberação) — sem mudança
+- `CONCLUIDO` → `[6]` (Finalizado) — era `[9]`
 
-### Mudanças
-
-**`src/lib/uno/os.ts`** — em `listarOSsPorStatus`, trocar a querystring de cada chamada paralela:
-
-```
-servico/osq0001?page=0&requiresCounts=true&size={limit}&status={cod}
-```
-
-(antes era `&codStatus={cod}`)
-
-Nada mais muda — o mapeamento `OS_COD_STATUS`, o fan-out em paralelo (1 chamada por código) e o `mapOSToCardData` continuam iguais.
+`src/lib/uno/os.ts` não muda — continua lendo o mapa e fazendo 1 chamada paralela por código via `&status={cod}` (fila passa a disparar 2 chamadas em paralelo).
