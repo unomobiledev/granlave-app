@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
-  RotateCcw,
   FlagOff,
   Calendar,
   User,
@@ -37,7 +36,6 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const seedMock = useTrucksStore((s) => s.seedMock);
-  const resetMock = useTrucksStore((s) => s.resetMock);
 
   useEffect(() => {
     seedMock();
@@ -47,7 +45,7 @@ function Index() {
     <div className="min-h-full bg-muted/30">
       <AppHeader />
       <main className="mx-auto max-w-7xl space-y-10 px-6 py-8">
-        <FilaSection onReset={resetMock} />
+        <FilaSection />
         <AtendimentoSection />
         <ConcluidosSection />
       </main>
@@ -59,7 +57,7 @@ function Index() {
  * Blocos por status (todos vindos da API UNO — mock por enquanto)
  * =========================================================== */
 
-function FilaSection({ onReset }: { onReset: () => void }) {
+function FilaSection() {
   const q = useQuery({
     queryKey: ["uno", "os", "status", "AGUARDANDO_FILA"],
     queryFn: () => listarOSsNaFila(),
@@ -67,15 +65,7 @@ function FilaSection({ onReset }: { onReset: () => void }) {
   const rows = (q.data ?? []).map(mapOSToCardData);
   return (
     <section>
-      <SectionHeader
-        title="Veículos na fila"
-        count={rows.length}
-        action={
-          <Button variant="outline" size="sm" className="gap-2" onClick={onReset}>
-            <RotateCcw className="h-3.5 w-3.5" /> Resetar mockup
-          </Button>
-        }
-      />
+      <SectionHeader title="Veículos na fila" count={rows.length} />
       <StatusBlockBody
         query={q}
         rows={rows}
