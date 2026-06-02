@@ -7,6 +7,7 @@ export type MockOS = {
   cliente: string;
   dataEmissao: string;
   situacao: OSStatus;
+  codStatus?: number;
   etapaAtual?: number;
   finalizadoAntecipado?: { etapa: number; motivo: string };
 };
