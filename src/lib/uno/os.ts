@@ -75,6 +75,7 @@ export function listarOSsConcluidas(limit = 8) {
 /** Shape normalizado consumido pelos cards da home. */
 export type OSCardData = {
   id: string;
+  codOs: string;
   os: string;
   placa: string;
   cliente: string;
@@ -95,8 +96,10 @@ export function mapOSToCardData(os: OS): OSCardData {
   const fa = (os as Record<string, unknown>).finalizadoAntecipado as
     | { etapa: number; motivo: string }
     | undefined;
+  const codOs = String(os.id ?? os.numero ?? os.numeroOs ?? numero);
   return {
-    id: String(os.id ?? numero),
+    id: codOs,
+    codOs,
     os: numero,
     placa: String(os.placa ?? "—"),
     cliente,
