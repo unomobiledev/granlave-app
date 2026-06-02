@@ -14,3 +14,13 @@ export const OS_STATUS = {
 } as const;
 
 export type OSStatus = (typeof OS_STATUS)[keyof typeof OS_STATUS];
+
+/**
+ * Mapa do status lógico (UI) → códigos numéricos `codStatus` do UNO usados
+ * para filtrar o endpoint `servico/osq0001`.
+ */
+export const OS_COD_STATUS = {
+  [OS_STATUS.AGUARDANDO_FILA]: [2],
+  [OS_STATUS.EM_ATENDIMENTO]: [3, 4, 5],
+  [OS_STATUS.CONCLUIDO]: [6],
+} as const satisfies Record<OSStatus, readonly number[]>;
