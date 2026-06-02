@@ -31,6 +31,7 @@ export type OSDetalhe = {
 
 export async function buscarOSPorCodigo(
   codOs: string | number,
+  codAtendimento: string | number,
 ): Promise<OSDetalhe> {
   if (USE_MOCK) {
     return new Promise((resolve) =>
@@ -57,6 +58,6 @@ export async function buscarOSPorCodigo(
   }
 
   return unoGet<OSDetalhe>(
-    `servico/osw0001/${encodeURIComponent(String(codOs))}/null`,
+    `servico/osw0001/${encodeURIComponent(String(codOs))}/${encodeURIComponent(String(codAtendimento))}`,
   );
 }
