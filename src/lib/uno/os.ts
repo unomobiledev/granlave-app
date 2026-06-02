@@ -3,7 +3,7 @@ import {
   mockListarOSsPorStatus,
   type MockOS,
 } from "./os.mock";
-import { OS_STATUS, type OSStatus } from "./os.types";
+import { OS_STATUS, OS_COD_STATUS, type OSStatus } from "./os.types";
 
 export { OS_STATUS, type OSStatus };
 
@@ -17,6 +17,7 @@ export type OS = {
   clienteNome?: string;
   situacao?: string;
   status?: string;
+  codStatus?: number;
   placa?: string;
   [key: string]: unknown;
 };
@@ -54,10 +55,18 @@ export async function listarOSsPorStatus(
     const rows = await mockListarOSsPorStatus(status, { limit });
     return rows.map(mockToOS);
   }
-  const page = await unoGet<PageResponse<OS>>(
-    `servico/osq0001?situacao=${encodeURIComponent(status)}&page=0&size=${limit}`,
+  // O endpoint aceita `codStatus` numérico; até confirmarmos suporte a CSV ou
+  // repetição da query string, fazemos uma chamada por código em paralelo.
+  const codigos = OS_COD_STATUS[status];
+  const pages = await Promise.all(
+    codigos.map((cod) =>
+      unoGet<PageResponse<OS>>(
+        `servico/osq0001?page=0&requiresCounts=true&size=${limit}&codStatus=${cod}`,
+      ),
+    ),
   );
-  return page.content ?? [];
+  const all = pages.flatMap((p) => p.content ?? []);
+  return all.slice(0, limit);
 }
 
 export function listarOSsNaFila(limit = 50) {
