@@ -33,7 +33,7 @@ type State = {
   osCounter: number;
   addTruck: (data: { placa: string; cliente: string; motorista: string; os?: string }) => void;
   createDraftTruck: () => string;
-  updateTruck: (truckId: string, patch: Partial<Pick<Truck, "placa" | "cliente" | "motorista">>) => void;
+  updateTruck: (truckId: string, patch: Partial<Pick<Truck, "placa" | "cliente" | "motorista" | "os">>) => void;
   setChecklistItem: (truckId: string, stageId: number, itemId: string, value: ChecklistValue) => void;
   advanceStage: (truckId: string) => void;
   finalizarAntecipado: (

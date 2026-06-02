@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Loader2, Search, X, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
   buscarUltimoClientePorPlaca,
   type Cliente,
 } from "@/lib/uno/clientes";
+import { criarOS } from "@/lib/uno/os-create";
 import { ClientePicker } from "./ClientePicker";
 
 const TIPO_VEICULO_OPTIONS: { label: string; placas: number }[] = [
@@ -163,9 +165,31 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   const finalOk = requiredFinal.every((k) => getStr(state, k).trim().length > 0);
   const canAdvance = !!tipoVeiculo && placasOk && clienteOk && finalOk;
 
-  const handleAdvance = () => {
-    advanceStage(truck.id);
-    navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
+  const [creating, setCreating] = useState(false);
+
+  const handleAdvance = async () => {
+    if (truck.os) {
+      advanceStage(truck.id);
+      navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
+      return;
+    }
+    setCreating(true);
+    try {
+      const motorista = getStr(state, "motorista");
+      const codClienteNum = Number(clienteId);
+      const resp = await criarOS({
+        codCliente: Number.isFinite(codClienteNum) && codClienteNum > 0 ? codClienteNum : 1,
+        nomeContato: motorista || truck.motorista || "—",
+      });
+      updateTruck(truck.id, { os: String(resp.numero ?? resp.codOs) });
+      advanceStage(truck.id);
+      navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Falha ao abrir OS no UNO: ${msg}`);
+    } finally {
+      setCreating(false);
+    }
   };
 
   // Auto-trigger lookup state on mount if cliente já selecionado
@@ -348,8 +372,12 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={handleAdvance} disabled={!canAdvance} className="gap-2">
-          <CheckCircle2 className="h-4 w-4" />
+        <Button onClick={handleAdvance} disabled={!canAdvance || creating} className="gap-2">
+          {creating ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" />
+          )}
           {truck.os ? "Salvar e avançar para Etapa 2" : "Abrir Ordem de Serviço"}
         </Button>
       </div>
