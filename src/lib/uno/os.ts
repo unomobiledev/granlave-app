@@ -4,6 +4,7 @@ import {
   type MockOS,
 } from "./os.mock";
 import { OS_STATUS, OS_COD_STATUS, type OSStatus } from "./os.types";
+import { DEV_RESTRICT_OS_STATUS_1_6, DEV_OS_STATUS_ALLOWED } from "./dev-flags";
 
 export { OS_STATUS, type OSStatus };
 
@@ -78,7 +79,15 @@ export async function listarOSsPorStatus(
     ),
   );
   const all = pages.flatMap((p) => p.content ?? []);
-  return all.slice(0, limit);
+  const filtered = DEV_RESTRICT_OS_STATUS_1_6
+    ? all.filter(
+        (o) =>
+          typeof o.codStatus === "number" &&
+          (DEV_OS_STATUS_ALLOWED as readonly number[]).includes(o.codStatus) &&
+          (codigos as readonly number[]).includes(o.codStatus),
+      )
+    : all;
+  return filtered.slice(0, limit);
 }
 
 export function listarOSsNaFila(limit = 50) {
