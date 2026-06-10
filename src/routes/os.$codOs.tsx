@@ -102,7 +102,14 @@ function OSHeaderInfo({ codOs, atend }: { codOs: string; atend: number }) {
       <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
         <Info label="Placa" value={data.placa} />
         <Info label="Cliente" value={formatCliente(data)} />
-        <Info label="Status" value={data.status} />
+        <Info
+          label="Status"
+          value={
+            (data as Record<string, unknown>).descAbrevStatus as string | undefined ??
+            (data as Record<string, unknown>).descStatus as string | undefined ??
+            data.status
+          }
+        />
         <Info label="Categoria" value={data.descricaoCategoria ?? data.categoria} />
         <Info label="Abertura" value={formatDate(data.dtAbertura)} />
         <Info label="Previsão" value={formatDate(data.dtPrevisaoConclusao)} />
@@ -130,6 +137,9 @@ function Info({ label, value }: { label: string; value?: string | number | null 
 }
 
 function formatCliente(os: OSDetalhe): string | undefined {
+  const rec = os as Record<string, unknown>;
+  const nomeCliente = rec.nomeCliente as string | undefined;
+  if (nomeCliente) return nomeCliente;
   if (typeof os.cliente === "string") return os.cliente;
   if (os.cliente && typeof os.cliente === "object") {
     return os.cliente.nome ?? os.cliente.razaoSocial;
