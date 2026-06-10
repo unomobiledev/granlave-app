@@ -98,7 +98,7 @@ function AtendimentoSection() {
         emptyMessage="Nenhum veículo em atendimento."
         skeletonCount={4}
         render={(rows) => (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {rows.map((r) => (
               <AtendimentoCard key={r.id} os={r} />
             ))}
@@ -264,17 +264,17 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
       search={{ atend: os.codAtendimento ?? 0 }}
       className="group block"
     >
-      <Card className="relative overflow-hidden border-primary/40 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/20 p-5 shadow-md transition-all hover:shadow-lg group-hover:-translate-y-0.5">
+      <Card className="relative overflow-hidden border-primary/40 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/20 p-6 shadow-md transition-all hover:shadow-lg group-hover:-translate-y-0.5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <TruckIcon className="h-6 w-6" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <TruckIcon className="h-7 w-7" />
             </div>
             <div className="min-w-0">
-              <div className="font-mono text-xs font-semibold uppercase tracking-wider text-primary">
+              <div className="font-mono text-sm font-semibold uppercase tracking-wider text-primary">
                 {os.os}
               </div>
-              <div className="truncate text-base font-semibold text-foreground">
+              <div className="truncate text-lg font-semibold text-foreground">
                 {os.cliente}
               </div>
               {os.responsavel && (
@@ -287,18 +287,18 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </div>
 
-        <div className="mt-5 rounded-lg border bg-background/60 p-3">
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 font-medium text-primary">
+        <div className="mt-5 rounded-lg border bg-background/60 p-4">
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="inline-flex items-center rounded-full bg-primary/15 px-2.5 py-0.5 text-sm font-medium text-primary">
               {os.descStatus ?? `Etapa ${etapa} de ${STAGES.length}`}
             </span>
             <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
-              <Clock className="h-3 w-3" /> {minutes}min
+              <Clock className="h-3.5 w-3.5" /> {minutes}min
             </span>
           </div>
           {os.dataEmissao && (
-            <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Calendar className="h-3 w-3" /> Comprometida em {formatData(os.dataEmissao)}
+            <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" /> Comprometida em {formatData(os.dataEmissao)}
             </div>
           )}
         </div>
