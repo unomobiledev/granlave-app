@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { useTrucksStore, isTruckInProgress } from "@/store/trucks";
 import { NewTruckDialog } from "@/components/NewTruckDialog";
 
-export function AppHeader({ extra }: { extra?: React.ReactNode }) {
+export function AppHeader({ extra }: { extra?: ReactNode }) {
   const trucks = useTrucksStore((s) => s.trucks);
   const emAtendimento = trucks.filter(isTruckInProgress).length;
   const naFila = trucks.length - emAtendimento;
