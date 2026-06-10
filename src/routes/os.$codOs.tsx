@@ -1,15 +1,46 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useQuery,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { buscarOSPorCodigo, type OSDetalhe } from "@/lib/uno/os-detalhe";
+import { listarSituacoesOS, type OSSituacao } from "@/lib/uno/os-situacoes";
+import {
+  listarItensModeloChecklist,
+  listarModelosChecklist,
+  type ChecklistItemModelo,
+  type ChecklistModelo,
+} from "@/lib/uno/checklist-modelos";
+import { useState } from "react";
 
 const osDetalheQueryOptions = (codOs: string, codAtendimento: number) =>
   queryOptions({
     queryKey: ["uno", "os", "detalhe", codOs, codAtendimento],
     queryFn: () => buscarOSPorCodigo(codOs, codAtendimento),
+  });
+
+const situacoesQueryOptions = queryOptions({
+  queryKey: ["uno", "os", "situacoes"],
+  queryFn: () => listarSituacoesOS(),
+  staleTime: 5 * 60_000,
+});
+
+const modelosChecklistQueryOptions = queryOptions({
+  queryKey: ["uno", "checklist", "modelos"],
+  queryFn: () => listarModelosChecklist(),
+  staleTime: 5 * 60_000,
+});
+
+const itensChecklistQueryOptions = (idModeloChecklist: number) =>
+  queryOptions({
+    queryKey: ["uno", "checklist", "itens", idModeloChecklist],
+    queryFn: () => listarItensModeloChecklist(idModeloChecklist),
+    staleTime: 5 * 60_000,
   });
 
 type OSDetalheSearch = { atend: number };
@@ -28,9 +59,12 @@ export const Route = createFileRoute("/os/$codOs")({
   loaderDeps: ({ search }: { search: OSDetalheSearch }) => ({ atend: search.atend }),
   loader: ({ params, deps, context }: { params: { codOs: string }; deps: { atend: number }; context: { queryClient: import("@tanstack/react-query").QueryClient } }) => {
     if (!deps.atend) return;
-    return context.queryClient.ensureQueryData(
+    context.queryClient.ensureQueryData(
       osDetalheQueryOptions(params.codOs, deps.atend),
     );
+    context.queryClient.ensureQueryData(situacoesQueryOptions);
+    context.queryClient.ensureQueryData(modelosChecklistQueryOptions);
+    return;
   },
   errorComponent: ({ error }) => (
     <div className="min-h-full bg-muted/30">
