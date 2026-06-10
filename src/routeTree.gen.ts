@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OsCodOsRouteImport } from './routes/os.$codOs'
 import { Route as CaminhaoTruckIdRouteImport } from './routes/caminhao.$truckId'
+import { Route as OsCodOsIndexRouteImport } from './routes/os.$codOs.index'
 import { Route as EtapaStageIdTruckIdRouteImport } from './routes/etapa.$stageId.$truckId'
 import { Route as OsCodOsEtapaCodSituacaoRouteImport } from './routes/os.$codOs.etapa.$codSituacao'
 
@@ -30,6 +31,11 @@ const CaminhaoTruckIdRoute = CaminhaoTruckIdRouteImport.update({
   path: '/caminhao/$truckId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OsCodOsIndexRoute = OsCodOsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OsCodOsRoute,
+} as any)
 const EtapaStageIdTruckIdRoute = EtapaStageIdTruckIdRouteImport.update({
   id: '/etapa/$stageId/$truckId',
   path: '/etapa/$stageId/$truckId',
@@ -46,13 +52,14 @@ export interface FileRoutesByFullPath {
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
   '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
+  '/os/$codOs/': typeof OsCodOsIndexRoute
   '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
-  '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
+  '/os/$codOs': typeof OsCodOsIndexRoute
   '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
 }
 export interface FileRoutesById {
@@ -61,6 +68,7 @@ export interface FileRoutesById {
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
   '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
+  '/os/$codOs/': typeof OsCodOsIndexRoute
   '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
 }
 export interface FileRouteTypes {
@@ -70,13 +78,14 @@ export interface FileRouteTypes {
     | '/caminhao/$truckId'
     | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
+    | '/os/$codOs/'
     | '/os/$codOs/etapa/$codSituacao'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/caminhao/$truckId'
-    | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
+    | '/os/$codOs'
     | '/os/$codOs/etapa/$codSituacao'
   id:
     | '__root__'
@@ -84,6 +93,7 @@ export interface FileRouteTypes {
     | '/caminhao/$truckId'
     | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
+    | '/os/$codOs/'
     | '/os/$codOs/etapa/$codSituacao'
   fileRoutesById: FileRoutesById
 }
@@ -117,6 +127,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CaminhaoTruckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/os/$codOs/': {
+      id: '/os/$codOs/'
+      path: '/'
+      fullPath: '/os/$codOs/'
+      preLoaderRoute: typeof OsCodOsIndexRouteImport
+      parentRoute: typeof OsCodOsRoute
+    }
     '/etapa/$stageId/$truckId': {
       id: '/etapa/$stageId/$truckId'
       path: '/etapa/$stageId/$truckId'
@@ -135,10 +152,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface OsCodOsRouteChildren {
+  OsCodOsIndexRoute: typeof OsCodOsIndexRoute
   OsCodOsEtapaCodSituacaoRoute: typeof OsCodOsEtapaCodSituacaoRoute
 }
 
 const OsCodOsRouteChildren: OsCodOsRouteChildren = {
+  OsCodOsIndexRoute: OsCodOsIndexRoute,
   OsCodOsEtapaCodSituacaoRoute: OsCodOsEtapaCodSituacaoRoute,
 }
 
