@@ -1,4 +1,4 @@
-import { unoFetch, unoPost, unoPut } from "./client";
+import { unoPost, unoPut } from "./client";
 
 /**
  * Gravação das respostas do checklist da OS.
@@ -36,7 +36,3 @@ export function atualizarRespostaChecklist(
     body,
   );
 }
-
-// re-export para evitar warning "imported but unused" se outros utilitários
-// passarem a usar unoFetch diretamente
-export { unoFetch };
