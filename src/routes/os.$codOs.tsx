@@ -61,7 +61,17 @@ function OSLayout() {
 
   return (
     <div className="min-h-full bg-muted/30">
-      <AppHeader />
+      <AppHeader
+        extra={
+          atend ? (
+            <OSHeaderInfo codOs={codOs} atend={atend} />
+          ) : (
+            <p className="text-xs text-destructive">
+              Atendimento não informado. Acesse a OS pela lista.
+            </p>
+          )
+        }
+      />
       <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <Link
           to="/"
@@ -70,55 +80,39 @@ function OSLayout() {
           <ArrowLeft className="h-4 w-4" /> Voltar
         </Link>
 
-        {atend ? (
-          <OSHeaderCard codOs={codOs} atend={atend} />
-        ) : (
-          <Card className="border-destructive/40 bg-destructive/5 p-4 text-sm">
-            <p className="font-medium text-destructive">
-              Atendimento não informado.
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              É necessário acessar a OS pela lista para incluir o código de atendimento.
-            </p>
-          </Card>
-        )}
-
         <Outlet />
       </main>
     </div>
   );
 }
 
-function OSHeaderCard({ codOs, atend }: { codOs: string; atend: number }) {
+function OSHeaderInfo({ codOs, atend }: { codOs: string; atend: number }) {
   const { data } = useSuspenseQuery(osDetalheQueryOptions(codOs, atend));
 
   return (
-    <Card className="p-6">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-        Ordem de Serviço
+    <div className="rounded-md border border-neutral-200 bg-muted/30 p-4">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+          OS
+        </span>
+        <span className="font-mono text-lg font-semibold text-foreground">
+          {String(data.numero ?? data.codOs)}
+        </span>
       </div>
-      <h1 className="mt-1 font-mono text-2xl font-semibold text-foreground">
-        {String(data.numero ?? data.codOs)}
-      </h1>
-      <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3 lg:grid-cols-4">
         <Info label="Placa" value={data.placa} />
         <Info label="Cliente" value={formatCliente(data)} />
         <Info label="Status" value={data.status} />
-        <Info
-          label="Categoria"
-          value={data.descricaoCategoria ?? data.categoria}
-        />
+        <Info label="Categoria" value={data.descricaoCategoria ?? data.categoria} />
         <Info label="Abertura" value={formatDate(data.dtAbertura)} />
         <Info label="Previsão" value={formatDate(data.dtPrevisaoConclusao)} />
         <Info label="Contato" value={data.nomeContato} />
         <Info
           label="Telefone"
-          value={
-            data.telefone ? `(${data.ddd ?? ""}) ${data.telefone}` : undefined
-          }
+          value={data.telefone ? `(${data.ddd ?? ""}) ${data.telefone}` : undefined}
         />
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -128,7 +122,7 @@ function Info({ label, value }: { label: string; value?: string | number | null 
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <div className="mt-0.5 text-foreground">
+      <div className="mt-0.5 text-foreground truncate">
         {value === undefined || value === null || value === "" ? "—" : String(value)}
       </div>
     </div>
