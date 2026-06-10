@@ -16,6 +16,7 @@ import {
   type ChecklistItemModelo,
   type ChecklistModelo,
 } from "@/lib/uno/checklist-modelos";
+import { DEV_RESTRICT_OS_STATUS_1_6, DEV_OS_STATUS_ALLOWED } from "@/lib/uno/dev-flags";
 import { useState } from "react";
 
 const osDetalheQueryOptions = (codOs: string, codAtendimento: number) =>
@@ -171,7 +172,11 @@ function SituacoesSection({ codStatusAtual }: { codStatusAtual?: number }) {
 
   // Mostra apenas as etapas iniciais do fluxo (códigos 1 a 6).
   const etapas = situacoes
-    .filter((s) => s.codigo >= 1 && s.codigo <= 6)
+    .filter(
+      (s) =>
+        !DEV_RESTRICT_OS_STATUS_1_6 ||
+        (DEV_OS_STATUS_ALLOWED as readonly number[]).includes(s.codigo),
+    )
     .sort((a, b) => a.codigo - b.codigo);
 
   return (
