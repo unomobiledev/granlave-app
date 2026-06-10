@@ -1,7 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
@@ -23,16 +21,7 @@ const modelosChecklistQueryOptions = queryOptions({
   staleTime: 5 * 60_000,
 });
 
-type EtapaSearch = { atend: number };
-
-function validateEtapaSearch(input: Record<string, unknown>): EtapaSearch {
-  const raw = input?.atend;
-  const n = typeof raw === "number" ? raw : Number(raw);
-  return { atend: Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0 };
-}
-
 export const Route = createFileRoute("/os/$codOs/etapa/$codSituacao")({
-  validateSearch: validateEtapaSearch,
   head: ({ params }) => ({
     meta: [
       { title: `OS ${params.codOs} — Etapa ${params.codSituacao} — GranLave` },
@@ -59,18 +48,7 @@ function EtapaChecklistPage() {
   const idModelo = (modelo?.id ?? modelo?.codigo) as number | undefined;
 
   return (
-    <div className="min-h-full bg-muted/30">
-      <AppHeader />
-      <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
-        <Link
-          to="/os/$codOs"
-          params={{ codOs }}
-          search={{ atend }}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> Voltar para a OS
-        </Link>
-
+    <>
         <Card className="p-6">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-primary">
             OS {codOs} — Etapa #{codigo}
@@ -103,7 +81,6 @@ function EtapaChecklistPage() {
             </Link>
           </Button>
         </div>
-      </main>
-    </div>
+    </>
   );
 }
