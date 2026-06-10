@@ -45,3 +45,18 @@ export async function listarItensModeloChecklist(
   if (Array.isArray(data)) return data;
   return data.content ?? [];
 }
+
+/**
+ * Resolve o modelo de checklist vinculado a uma situação da OS.
+ * Tenta `codSituacao` (1:1 com `codigo`) e cai para `codStatus`.
+ */
+export function findModeloForSituacao(
+  modelos: ChecklistModelo[],
+  situacao: { codigo: number; codStatus: number },
+): ChecklistModelo | undefined {
+  return modelos.find(
+    (m) =>
+      m.codSituacao === situacao.codigo ||
+      m.codStatus === situacao.codStatus,
+  );
+}

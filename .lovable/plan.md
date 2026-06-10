@@ -1,43 +1,67 @@
-## Problema
+## Objetivo
 
-Na home, cada bloco chama `servico/osq0001?status={cod}` por código (1–2, 3–5, 6). Se a API UNO devolver alguma OS com `codStatus` fora da faixa pedida (por algum motivo de servidor/cache/regra), ela aparece no card mesmo assim — não há guard client-side.
+Reformular a tela de detalhe da OS (`/os/$codOs`) para exibir os **status possíveis** como cards verticais (etapas virtuais do fluxo). Clicar em um card abre a **terceira tela** com o checklist daquele status.
 
-## Plano (flag de dev, removível no go-live)
+O `codStatus` atual da OS determina visualmente o progresso:
+- status `< codStatusAtual` → **Concluído** (verde/check)
+- status `=== codStatusAtual` → **Em andamento** (destaque/primary)
+- status `> codStatusAtual` → **Pendente** (cinza/bloqueado)
 
-1. **Novo `src/lib/uno/dev-flags.ts`**
-   ```ts
-   export const DEV_RESTRICT_OS_STATUS_1_6 = true;
-   export const DEV_OS_STATUS_ALLOWED = [1, 2, 3, 4, 5, 6] as const;
-   ```
+Premissa: como só se avança preenchendo o checklist da etapa, todos os anteriores são considerados concluídos por inferência (sem consultar respostas reais agora).
 
-2. **`src/lib/uno/os.ts` — `listarOSsPorStatus`**
-   Após o `flatMap`, filtrar:
-   ```ts
-   const all = pages.flatMap((p) => p.content ?? []);
-   const filtered = DEV_RESTRICT_OS_STATUS_1_6
-     ? all.filter(
-         (o) =>
-           typeof o.codStatus === "number" &&
-           DEV_OS_STATUS_ALLOWED.includes(o.codStatus as 1|2|3|4|5|6) &&
-           codigos.includes(o.codStatus), // garante que pertence ao bloco
-       )
-     : all;
-   return filtered.slice(0, limit);
-   ```
+## Escopo restrito ao dev flag
 
-3. **`src/routes/os.$codOs.tsx` — `SituacoesSection`**
-   Trocar o filtro fixo `codigo >= 1 && codigo <= 6` por leitura do mesmo flag:
-   ```ts
-   const etapas = situacoes
-     .filter((s) => !DEV_RESTRICT_OS_STATUS_1_6 || DEV_OS_STATUS_ALLOWED.includes(s.codigo))
-     .sort((a, b) => a.codigo - b.codigo);
-   ```
+Continua valendo `DEV_RESTRICT_OS_STATUS_1_6` — somente os status 1..6 entram na timeline.
 
-## Go-live
+## Mudanças
 
-Basta setar `DEV_RESTRICT_OS_STATUS_1_6 = false` (ou apagar o arquivo e os 2 imports) — nenhum outro lugar do app precisa ser tocado.
+### 1. `src/routes/os.$codOs.tsx` — reformular `SituacoesSection`
 
-## Fora do escopo
+Substituir o accordion atual (que abre o checklist inline) por **cards** com 3 estados visuais e clique navegando para a 3ª tela.
 
-- Não muda UI, tipos, endpoints, nem o mapeamento `OS_COD_STATUS`.
-- Não toca em outros lugares que consomem OS (telas de etapa/caminhão).
+```text
+┌─────────────────────────────────────────┐
+│ ✓  Etapa 1 — Recepção         Concluído │
+├─────────────────────────────────────────┤
+│ ✓  Etapa 2 — Triagem          Concluído │
+├─────────────────────────────────────────┤
+│ ●  Etapa 3 — Lavagem        Em andamento│   ← clique abre checklist
+├─────────────────────────────────────────┤
+│ ○  Etapa 4 — Higienização       Pendente│
+└─────────────────────────────────────────┘
+```
+
+Lógica de estado por etapa (`s.codigo` vs `data.codStatus`):
+- `s.codigo < codStatusAtual` → `"concluido"`
+- `s.codigo === codStatusAtual` → `"atual"`
+- `s.codigo > codStatusAtual` → `"pendente"`
+
+Cards `concluido` e `atual` são clicáveis (atual em destaque). Cards `pendente` ficam desabilitados (sem navegação) — opcional permitir abrir só leitura depois.
+
+### 2. Nova rota: `src/routes/os.$codOs.etapa.$codSituacao.tsx`
+
+Terceira tela = checklist da etapa selecionada. Recebe `codOs` (params), `codSituacao` (params) e `atend` (search, mantido do detalhe).
+
+Conteúdo:
+- Header com voltar para `/os/$codOs?atend=...`
+- Título da etapa (busca em `listarSituacoesOS()` pelo `codigo`)
+- Reaproveita o componente `ChecklistItens` já existente em `os.$codOs.tsx` (extrair para `src/components/os/ChecklistItens.tsx`)
+- Resolve o modelo via `findModeloForSituacao(modelos, situacao)` (também extrair para `src/lib/uno/checklist-modelos.ts` como helper puro)
+
+Persistência de respostas fica fora deste plano (já existe `checklist-respostas.ts` para futuro uso).
+
+### 3. Extrações para evitar duplicação
+
+- Mover `ChecklistItens` para `src/components/os/ChecklistItens.tsx`.
+- Mover `findModeloForSituacao` para `src/lib/uno/checklist-modelos.ts`.
+- Mover o cálculo da timeline para um helper `buildEtapas(situacoes, codStatusAtual)` em `src/lib/uno/os-etapas.ts`, retornando `{ situacao, estado: "concluido"|"atual"|"pendente" }[]`, já aplicando o dev flag.
+
+### 4. Navegação
+
+Card clicável usa `<Link to="/os/$codOs/etapa/$codSituacao" params={{ codOs, codSituacao: String(s.codigo) }} search={{ atend }}>`.
+
+## Não faz parte deste plano
+
+- Persistir respostas do checklist (próxima etapa).
+- Validar de fato se cada etapa anterior foi concluída no backend (assumimos pela posição do `codStatus`).
+- Mudar a home.
