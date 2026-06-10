@@ -1,23 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   queryOptions,
-  useQuery,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, Circle, CircleDot, Lock } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { buscarOSPorCodigo, type OSDetalhe } from "@/lib/uno/os-detalhe";
-import { listarSituacoesOS, type OSSituacao } from "@/lib/uno/os-situacoes";
+import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
 import {
-  listarItensModeloChecklist,
   listarModelosChecklist,
-  type ChecklistItemModelo,
-  type ChecklistModelo,
 } from "@/lib/uno/checklist-modelos";
-import { DEV_RESTRICT_OS_STATUS_1_6, DEV_OS_STATUS_ALLOWED } from "@/lib/uno/dev-flags";
-import { useState } from "react";
+import { buildEtapas, type EtapaTimeline } from "@/lib/uno/os-etapas";
 
 const osDetalheQueryOptions = (codOs: string, codAtendimento: number) =>
   queryOptions({
@@ -36,13 +31,6 @@ const modelosChecklistQueryOptions = queryOptions({
   queryFn: () => listarModelosChecklist(),
   staleTime: 5 * 60_000,
 });
-
-const itensChecklistQueryOptions = (idModeloChecklist: number) =>
-  queryOptions({
-    queryKey: ["uno", "checklist", "itens", idModeloChecklist],
-    queryFn: () => listarItensModeloChecklist(idModeloChecklist),
-    staleTime: 5 * 60_000,
-  });
 
 type OSDetalheSearch = { atend: number };
 
@@ -168,123 +156,95 @@ function OSDetalhePage() {
 
 function SituacoesSection({ codStatusAtual }: { codStatusAtual?: number }) {
   const { data: situacoes } = useSuspenseQuery(situacoesQueryOptions);
-  const { data: modelos } = useSuspenseQuery(modelosChecklistQueryOptions);
+  // Garante que os modelos sejam pré-carregados para a 3ª tela
+  useSuspenseQuery(modelosChecklistQueryOptions);
+  const { codOs } = Route.useParams();
+  const { atend } = Route.useSearch();
 
-  // Mostra apenas as etapas iniciais do fluxo (códigos 1 a 6).
-  const etapas = situacoes
-    .filter(
-      (s) =>
-        !DEV_RESTRICT_OS_STATUS_1_6 ||
-        (DEV_OS_STATUS_ALLOWED as readonly number[]).includes(s.codigo),
-    )
-    .sort((a, b) => a.codigo - b.codigo);
+  const etapas = buildEtapas(situacoes, codStatusAtual);
 
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold text-foreground">Etapas da OS</h2>
-      {etapas.map((s) => (
-        <SituacaoCard
-          key={s.codigo}
-          situacao={s}
-          atual={s.codStatus === codStatusAtual}
-          modelo={findModeloForSituacao(modelos, s)}
+      {etapas.map((e) => (
+        <EtapaCard
+          key={e.situacao.codigo}
+          etapa={e}
+          codOs={codOs}
+          atend={atend}
         />
       ))}
     </section>
   );
 }
 
-function findModeloForSituacao(
-  modelos: ChecklistModelo[],
-  situacao: OSSituacao,
-): ChecklistModelo | undefined {
-  return modelos.find(
-    (m) =>
-      m.codSituacao === situacao.codigo ||
-      m.codStatus === situacao.codStatus,
-  );
-}
-
-function SituacaoCard({
-  situacao,
-  atual,
-  modelo,
+function EtapaCard({
+  etapa,
+  codOs,
+  atend,
 }: {
-  situacao: OSSituacao;
-  atual: boolean;
-  modelo?: ChecklistModelo;
+  etapa: EtapaTimeline;
+  codOs: string;
+  atend: number;
 }) {
-  const [open, setOpen] = useState(false);
-  const idModelo = (modelo?.id ?? modelo?.codigo) as number | undefined;
+  const { situacao, estado } = etapa;
+  const titulo =
+    situacao.descAbrev ?? situacao.descricaoAbreviada ?? situacao.descricao;
 
-  return (
-    <Card className={`p-4 ${atual ? "border-primary/60 ring-1 ring-primary/30" : ""}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 text-left"
-      >
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Etapa #{situacao.codigo}
-          </div>
-          <div className="text-sm font-medium text-foreground">
-            {situacao.descAbrev ?? situacao.descricaoAbreviada ?? situacao.descricao}
-          </div>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {atual ? "Atual" : open ? "Fechar" : "Abrir"}
-        </div>
-      </button>
+  const styles =
+    estado === "atual"
+      ? "border-primary/60 ring-1 ring-primary/30"
+      : estado === "concluido"
+        ? "border-emerald-500/40 bg-emerald-500/5"
+        : "opacity-60";
 
-      {open && (
-        <div className="mt-3 border-t pt-3">
-          {idModelo ? (
-            <ChecklistItens idModeloChecklist={idModelo} />
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Nenhum modelo de checklist vinculado a esta etapa.
-            </p>
-          )}
+  const icon =
+    estado === "concluido" ? (
+      <Check className="h-5 w-5 text-emerald-600" />
+    ) : estado === "atual" ? (
+      <CircleDot className="h-5 w-5 text-primary" />
+    ) : (
+      <Circle className="h-5 w-5 text-muted-foreground" />
+    );
+
+  const label =
+    estado === "concluido"
+      ? "Concluído"
+      : estado === "atual"
+        ? "Em andamento"
+        : "Pendente";
+
+  const content = (
+    <Card className={`flex items-center gap-3 p-4 ${styles}`}>
+      <div className="shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Etapa #{situacao.codigo}
         </div>
-      )}
+        <div className="truncate text-sm font-medium text-foreground">
+          {titulo}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {label}
+        {estado === "pendente" && <Lock className="h-3.5 w-3.5" />}
+      </div>
     </Card>
   );
-}
 
-function ChecklistItens({ idModeloChecklist }: { idModeloChecklist: number }) {
-  const { data, isLoading, error } = useQuery(
-    itensChecklistQueryOptions(idModeloChecklist),
-  );
-
-  if (isLoading) {
-    return <p className="text-xs text-muted-foreground">Carregando checklist…</p>;
-  }
-  if (error) {
-    return (
-      <p className="text-xs text-destructive">
-        Erro ao carregar checklist: {(error as Error).message}
-      </p>
-    );
-  }
-  if (!data || data.length === 0) {
-    return <p className="text-xs text-muted-foreground">Sem itens neste modelo.</p>;
+  if (estado === "pendente") {
+    return <div aria-disabled>{content}</div>;
   }
 
   return (
-    <ul className="space-y-1.5 text-sm">
-      {data.map((item: ChecklistItemModelo) => (
-        <li key={item.id} className="flex items-start gap-2">
-          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary/60" />
-          <span className="text-foreground">
-            {item.pergunta ?? item.descricao ?? `Item #${item.id}`}
-          </span>
-          {item.obrigatorio && (
-            <span className="ml-auto text-[10px] text-destructive">obrigatório</span>
-          )}
-        </li>
-      ))}
-    </ul>
+    <Link
+      to="/os/$codOs/etapa/$codSituacao"
+      params={{ codOs, codSituacao: String(situacao.codigo) }}
+      search={{ atend }}
+      className="block transition hover:scale-[1.005]"
+    >
+      {content}
+    </Link>
   );
 }
 
