@@ -152,31 +152,3 @@ function EtapaCard({
     </Link>
   );
 }
-
-function Info({ label, value }: { label: string; value?: string | number | null }) {
-  return (
-    <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-0.5 text-foreground">
-        {value === undefined || value === null || value === "" ? "—" : String(value)}
-      </div>
-    </div>
-  );
-}
-
-function formatCliente(os: OSDetalhe): string | undefined {
-  if (typeof os.cliente === "string") return os.cliente;
-  if (os.cliente && typeof os.cliente === "object") {
-    return os.cliente.nome ?? os.cliente.razaoSocial;
-  }
-  return undefined;
-}
-
-function formatDate(value: unknown): string | undefined {
-  if (!value || typeof value !== "string") return undefined;
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("pt-BR");
-}
