@@ -169,9 +169,9 @@ function SituacoesSection({ codStatusAtual }: { codStatusAtual?: number }) {
   const { data: situacoes } = useSuspenseQuery(situacoesQueryOptions);
   const { data: modelos } = useSuspenseQuery(modelosChecklistQueryOptions);
 
-  // Mostra apenas as situações marcadas para Kanban (etapas do fluxo).
+  // Mostra apenas as etapas iniciais do fluxo (códigos 1 a 6).
   const etapas = situacoes
-    .filter((s) => s.indKanban !== false)
+    .filter((s) => s.codigo >= 1 && s.codigo <= 6)
     .sort((a, b) => a.codigo - b.codigo);
 
   return (
