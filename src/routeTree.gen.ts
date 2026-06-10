@@ -14,7 +14,6 @@ import { Route as OsCodOsRouteImport } from './routes/os.$codOs'
 import { Route as CaminhaoTruckIdRouteImport } from './routes/caminhao.$truckId'
 import { Route as EtapaStageIdTruckIdRouteImport } from './routes/etapa.$stageId.$truckId'
 import { Route as OsCodOsEtapaCodSituacaoRouteImport } from './routes/os.$codOs.etapa.$codSituacao'
-import { Route as OsCodOsEtapaCodSituacaoRouteImport } from './routes/os.$codOs.etapa.$codSituacao'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,11 +33,6 @@ const CaminhaoTruckIdRoute = CaminhaoTruckIdRouteImport.update({
 const EtapaStageIdTruckIdRoute = EtapaStageIdTruckIdRouteImport.update({
   id: '/etapa/$stageId/$truckId',
   path: '/etapa/$stageId/$truckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OsCodOsEtapaCodSituacaoRoute = OsCodOsEtapaCodSituacaoRouteImport.update({
-  id: '/os/$codOs/etapa/$codSituacao',
-  path: '/os/$codOs/etapa/$codSituacao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OsCodOsEtapaCodSituacaoRoute = OsCodOsEtapaCodSituacaoRouteImport.update({
