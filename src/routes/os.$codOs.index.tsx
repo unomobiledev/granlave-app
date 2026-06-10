@@ -162,9 +162,11 @@ function SituacoesSection({
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold text-foreground">Etapas da OS</h2>
-      {etapas.map((e) => (
-        <EtapaCard key={e.situacao.codigo} etapa={e} codOs={codOs} atend={atend} />
-      ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {etapas.map((e) => (
+          <EtapaCard key={e.situacao.codigo} etapa={e} codOs={codOs} atend={atend} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -206,18 +208,22 @@ function EtapaCard({
         : "Pendente";
 
   const content = (
-    <Card className={`flex items-center gap-3 p-4 ${styles}`}>
-      <div className="shrink-0">{icon}</div>
+    <Card className={`flex h-full flex-col gap-3 p-4 ${styles}`}>
+      <div className="flex items-center justify-between">
+        <div className="shrink-0">{icon}</div>
+        {estado === "pendente" && (
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Etapa #{situacao.codigo}
         </div>
-        <div className="truncate text-sm font-medium text-foreground">{titulo}</div>
+        <div className="mt-1 line-clamp-2 text-sm font-medium text-foreground">
+          {titulo}
+        </div>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {label}
-        {estado === "pendente" && <Lock className="h-3.5 w-3.5" />}
-      </div>
+      <div className="text-xs text-muted-foreground">{label}</div>
     </Card>
   );
 
@@ -230,7 +236,7 @@ function EtapaCard({
       to="/os/$codOs/etapa/$codSituacao"
       params={{ codOs, codSituacao: String(situacao.codigo) }}
       search={{ atend }}
-      className="block transition hover:scale-[1.005]"
+      className="block h-full transition hover:scale-[1.01]"
     >
       {content}
     </Link>
