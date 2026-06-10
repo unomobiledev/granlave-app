@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as OsCodOsRouteImport } from './routes/os.$codOs'
 import { Route as CaminhaoTruckIdRouteImport } from './routes/caminhao.$truckId'
 import { Route as EtapaStageIdTruckIdRouteImport } from './routes/etapa.$stageId.$truckId'
+import { Route as OsCodOsEtapaCodSituacaoRouteImport } from './routes/os.$codOs.etapa.$codSituacao'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,25 +35,33 @@ const EtapaStageIdTruckIdRoute = EtapaStageIdTruckIdRouteImport.update({
   path: '/etapa/$stageId/$truckId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OsCodOsEtapaCodSituacaoRoute = OsCodOsEtapaCodSituacaoRouteImport.update({
+  id: '/etapa/$codSituacao',
+  path: '/etapa/$codSituacao',
+  getParentRoute: () => OsCodOsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
-  '/os/$codOs': typeof OsCodOsRoute
+  '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
+  '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
-  '/os/$codOs': typeof OsCodOsRoute
+  '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
+  '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
-  '/os/$codOs': typeof OsCodOsRoute
+  '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
+  '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -61,20 +70,27 @@ export interface FileRouteTypes {
     | '/caminhao/$truckId'
     | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
+    | '/os/$codOs/etapa/$codSituacao'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/caminhao/$truckId' | '/os/$codOs' | '/etapa/$stageId/$truckId'
+  to:
+    | '/'
+    | '/caminhao/$truckId'
+    | '/os/$codOs'
+    | '/etapa/$stageId/$truckId'
+    | '/os/$codOs/etapa/$codSituacao'
   id:
     | '__root__'
     | '/'
     | '/caminhao/$truckId'
     | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
+    | '/os/$codOs/etapa/$codSituacao'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaminhaoTruckIdRoute: typeof CaminhaoTruckIdRoute
-  OsCodOsRoute: typeof OsCodOsRoute
+  OsCodOsRoute: typeof OsCodOsRouteWithChildren
   EtapaStageIdTruckIdRoute: typeof EtapaStageIdTruckIdRoute
 }
 
@@ -108,15 +124,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EtapaStageIdTruckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/os/$codOs/etapa/$codSituacao': {
+      id: '/os/$codOs/etapa/$codSituacao'
+      path: '/etapa/$codSituacao'
+      fullPath: '/os/$codOs/etapa/$codSituacao'
+      preLoaderRoute: typeof OsCodOsEtapaCodSituacaoRouteImport
+      parentRoute: typeof OsCodOsRoute
+    }
   }
 }
+
+interface OsCodOsRouteChildren {
+  OsCodOsEtapaCodSituacaoRoute: typeof OsCodOsEtapaCodSituacaoRoute
+}
+
+const OsCodOsRouteChildren: OsCodOsRouteChildren = {
+  OsCodOsEtapaCodSituacaoRoute: OsCodOsEtapaCodSituacaoRoute,
+}
+
+const OsCodOsRouteWithChildren =
+  OsCodOsRoute._addFileChildren(OsCodOsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaminhaoTruckIdRoute: CaminhaoTruckIdRoute,
-  OsCodOsRoute: OsCodOsRoute,
+  OsCodOsRoute: OsCodOsRouteWithChildren,
   EtapaStageIdTruckIdRoute: EtapaStageIdTruckIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
