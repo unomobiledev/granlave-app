@@ -2,36 +2,36 @@ import type { ChecklistModelo, ChecklistItemModelo } from "./checklist-modelos";
 
 export function mockListarModelosChecklist(): ChecklistModelo[] {
   return [
-    { id: 1, codigo: 1, descricao: "Abertura da OS",         codSituacao: 1, codStatus: 1 },
-    { id: 3, codigo: 3, descricao: "Pré-lavagem",            codSituacao: 3, codStatus: 3 },
-    { id: 4, codigo: 4, descricao: "Higienização interna",   codSituacao: 4, codStatus: 4 },
-    { id: 5, codigo: 5, descricao: "Secagem e inspeção",     codSituacao: 5, codStatus: 5 },
-    { id: 6, codigo: 6, descricao: "Liberação",              codSituacao: 6, codStatus: 6 },
+    { id: 1, codigo: 1, descricao: "Higienização" },
+    { id: 2, codigo: 2, descricao: "Secagem" },
+    { id: 3, codigo: 3, descricao: "Checklist final" },
   ];
 }
 
 const ITENS_POR_MODELO: Record<number, ChecklistItemModelo[]> = {
   1: [
-    { id: 101, pergunta: "Documentação do veículo conferida?",        tipoResposta: "SIM_NAO", obrigatorio: true,  ordem: 1 },
-    { id: 102, pergunta: "Placa do veículo confere com a OS?",        tipoResposta: "SIM_NAO", obrigatorio: true,  ordem: 2 },
-    { id: 103, pergunta: "Produto transportado identificado?",        tipoResposta: "TEXTO",   obrigatorio: true,  ordem: 3 },
+    { idModeloChecklistPergunta: 1, idModeloChecklist: 1, grupoPergunta: "Inspeção", pergunta: "Inspeção interna do tanque realizada?",     ordem: 10,  tipoResposta: 3, comboFixo: "Sim|Não|N/A",           descricao: "Verificar se o interior do tanque foi inspecionado." },
+    { idModeloChecklistPergunta: 2, idModeloChecklist: 1, grupoPergunta: "Inspeção", pergunta: "Boca de visita limpa e inspecionada?",      ordem: 20,  tipoResposta: 3, comboFixo: "Sim|Não|N/A",           descricao: "Conferir condição da boca de visita." },
+    { idModeloChecklistPergunta: 3, idModeloChecklist: 1, grupoPergunta: "Inspeção", pergunta: "Borrachas de vedação conferidas?",          ordem: 30,  tipoResposta: 3, comboFixo: "Sim|Não|N/A" },
+    { idModeloChecklistPergunta: 4, idModeloChecklist: 1, grupoPergunta: "Processo", pergunta: "Temperatura da etapa de aquecimento",       ordem: 40,  tipoResposta: 2,                                     descricao: "Informar em °C." },
+    { idModeloChecklistPergunta: 5, idModeloChecklist: 1, grupoPergunta: "Processo", pergunta: "Tempo da etapa de aquecimento",             ordem: 50,  tipoResposta: 2 },
+    { idModeloChecklistPergunta: 6, idModeloChecklist: 1, grupoPergunta: "Processo", pergunta: "Teste de vazamento da válvula de descarga", ordem: 60,  tipoResposta: 3, comboFixo: "Aprovado|Reprovado|N/A" },
+    { idModeloChecklistPergunta: 7, idModeloChecklist: 1, grupoPergunta: "Processo", pergunta: "Resultado do pH",                           ordem: 70,  tipoResposta: 2, descricao: "Faixa esperada: 6,0 a 9,0." },
+    { idModeloChecklistPergunta: 8, idModeloChecklist: 1, grupoPergunta: "Não Conformidades", pergunta: "Não conformidades encontradas",    ordem: 80,  tipoResposta: 2 },
+  ],
+  2: [
+    { idModeloChecklistPergunta: 11, idModeloChecklist: 2, grupoPergunta: "Secagem", pergunta: "Secagem por ventilação forçada concluída?", ordem: 10, tipoResposta: 1 },
+    { idModeloChecklistPergunta: 12, idModeloChecklist: 2, grupoPergunta: "Secagem", pergunta: "Re-higienização de válvulas e mangueiras?", ordem: 20, tipoResposta: 1 },
+    { idModeloChecklistPergunta: 13, idModeloChecklist: 2, grupoPergunta: "Inspeção", pergunta: "Tanque visualmente seco?",                 ordem: 30, tipoResposta: 3, comboFixo: "Sim|Não|N/A" },
+    { idModeloChecklistPergunta: 14, idModeloChecklist: 2, grupoPergunta: "Processo", pergunta: "Tempo total de secagem (min)",             ordem: 40, tipoResposta: 2 },
   ],
   3: [
-    { id: 301, pergunta: "Resíduos removidos antes do enxágue?",      tipoResposta: "SIM_NAO", obrigatorio: true,  ordem: 1 },
-    { id: 302, pergunta: "Pressão da água adequada?",                 tipoResposta: "SIM_NAO", obrigatorio: false, ordem: 2 },
-  ],
-  4: [
-    { id: 401, pergunta: "Detergente aplicado conforme procedimento?", tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 1 },
-    { id: 402, pergunta: "Tempo de contato respeitado?",               tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 2 },
-    { id: 403, pergunta: "Enxágue final realizado?",                   tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 3 },
-  ],
-  5: [
-    { id: 501, pergunta: "Tanque visualmente seco?",                  tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 1 },
-    { id: 502, pergunta: "Inspeção interna sem anomalias?",           tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 2 },
-  ],
-  6: [
-    { id: 601, pergunta: "Lacre aplicado?",                            tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 1 },
-    { id: 602, pergunta: "Certificado emitido?",                       tipoResposta: "SIM_NAO", obrigatorio: true, ordem: 2 },
+    { idModeloChecklistPergunta: 21, idModeloChecklist: 3, grupoPergunta: "Lacres", pergunta: "Número do lacre - Boca de visita",            ordem: 10, tipoResposta: 2 },
+    { idModeloChecklistPergunta: 22, idModeloChecklist: 3, grupoPergunta: "Lacres", pergunta: "Número do lacre - Dreno",                     ordem: 20, tipoResposta: 2 },
+    { idModeloChecklistPergunta: 23, idModeloChecklist: 3, grupoPergunta: "Lacres", pergunta: "Número do lacre - Válvula de descarga",       ordem: 30, tipoResposta: 2 },
+    { idModeloChecklistPergunta: 24, idModeloChecklist: 3, grupoPergunta: "Lacres", pergunta: "Número do lacre - Mangote",                   ordem: 40, tipoResposta: 2 },
+    { idModeloChecklistPergunta: 25, idModeloChecklist: 3, grupoPergunta: "Liberação", pergunta: "Certificado emitido?",                     ordem: 50, tipoResposta: 1 },
+    { idModeloChecklistPergunta: 26, idModeloChecklist: 3, grupoPergunta: "Liberação", pergunta: "Documentação liberada?",                   ordem: 60, tipoResposta: 1 },
   ],
 };
 

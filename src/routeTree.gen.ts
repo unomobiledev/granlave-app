@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OsCodOsRouteImport } from './routes/os.$codOs'
+import { Route as ConfiguracoesChecklistRouteImport } from './routes/configuracoes.checklist'
 import { Route as CaminhaoTruckIdRouteImport } from './routes/caminhao.$truckId'
 import { Route as OsCodOsIndexRouteImport } from './routes/os.$codOs.index'
 import { Route as EtapaStageIdTruckIdRouteImport } from './routes/etapa.$stageId.$truckId'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const OsCodOsRoute = OsCodOsRouteImport.update({
   id: '/os/$codOs',
   path: '/os/$codOs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfiguracoesChecklistRoute = ConfiguracoesChecklistRouteImport.update({
+  id: '/configuracoes/checklist',
+  path: '/configuracoes/checklist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CaminhaoTruckIdRoute = CaminhaoTruckIdRouteImport.update({
@@ -50,6 +56,7 @@ const OsCodOsEtapaCodSituacaoRoute = OsCodOsEtapaCodSituacaoRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
+  '/configuracoes/checklist': typeof ConfiguracoesChecklistRoute
   '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
   '/os/$codOs/': typeof OsCodOsIndexRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
+  '/configuracoes/checklist': typeof ConfiguracoesChecklistRoute
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
   '/os/$codOs': typeof OsCodOsIndexRoute
   '/os/$codOs/etapa/$codSituacao': typeof OsCodOsEtapaCodSituacaoRoute
@@ -66,6 +74,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/caminhao/$truckId': typeof CaminhaoTruckIdRoute
+  '/configuracoes/checklist': typeof ConfiguracoesChecklistRoute
   '/os/$codOs': typeof OsCodOsRouteWithChildren
   '/etapa/$stageId/$truckId': typeof EtapaStageIdTruckIdRoute
   '/os/$codOs/': typeof OsCodOsIndexRoute
@@ -76,6 +85,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/caminhao/$truckId'
+    | '/configuracoes/checklist'
     | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
     | '/os/$codOs/'
@@ -84,6 +94,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/caminhao/$truckId'
+    | '/configuracoes/checklist'
     | '/etapa/$stageId/$truckId'
     | '/os/$codOs'
     | '/os/$codOs/etapa/$codSituacao'
@@ -91,6 +102,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/caminhao/$truckId'
+    | '/configuracoes/checklist'
     | '/os/$codOs'
     | '/etapa/$stageId/$truckId'
     | '/os/$codOs/'
@@ -100,6 +112,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaminhaoTruckIdRoute: typeof CaminhaoTruckIdRoute
+  ConfiguracoesChecklistRoute: typeof ConfiguracoesChecklistRoute
   OsCodOsRoute: typeof OsCodOsRouteWithChildren
   EtapaStageIdTruckIdRoute: typeof EtapaStageIdTruckIdRoute
 }
@@ -118,6 +131,13 @@ declare module '@tanstack/react-router' {
       path: '/os/$codOs'
       fullPath: '/os/$codOs'
       preLoaderRoute: typeof OsCodOsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes/checklist': {
+      id: '/configuracoes/checklist'
+      path: '/configuracoes/checklist'
+      fullPath: '/configuracoes/checklist'
+      preLoaderRoute: typeof ConfiguracoesChecklistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/caminhao/$truckId': {
@@ -167,19 +187,10 @@ const OsCodOsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaminhaoTruckIdRoute: CaminhaoTruckIdRoute,
+  ConfiguracoesChecklistRoute: ConfiguracoesChecklistRoute,
   OsCodOsRoute: OsCodOsRouteWithChildren,
   EtapaStageIdTruckIdRoute: EtapaStageIdTruckIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

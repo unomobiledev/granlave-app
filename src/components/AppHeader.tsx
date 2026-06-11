@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { Settings } from "lucide-react";
 import { useTrucksStore, isTruckInProgress } from "@/store/trucks";
 import { NewTruckDialog } from "@/components/NewTruckDialog";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useMockMode } from "@/lib/uno/mock-mode";
@@ -45,6 +48,11 @@ export function AppHeader({ extra }: { extra?: ReactNode }) {
               Modo mock
             </Label>
           </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/configuracoes/checklist" className="gap-1">
+              <Settings className="h-3.5 w-3.5" /> Configurações
+            </Link>
+          </Button>
           <NewTruckDialog />
         </div>
       </div>
