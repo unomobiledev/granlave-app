@@ -1,15 +1,14 @@
 import { unoGet } from "./client";
+import { isMockOn } from "./mock-mode";
+import { mockBuscarOSPorCodigo } from "./os-detalhe.mock";
 
 /**
  * Busca detalhes de uma OS específica no UNO ERP.
  * Endpoint canônico: GET servico/osw0001/{codOs}/null
- *
  * O segundo segmento (`null`) é mantido literalmente como aparece no
  * CURL fornecido pelo cliente — TODO documentar o significado real
  * (filial? variante?) quando for definido.
  */
-
-const USE_MOCK = false;
 
 export type OSDetalhe = {
   codOs: number | string;
@@ -33,29 +32,7 @@ export async function buscarOSPorCodigo(
   codOs: string | number,
   codAtendimento: string | number,
 ): Promise<OSDetalhe> {
-  if (USE_MOCK) {
-    return new Promise((resolve) =>
-      setTimeout(
-        () =>
-          resolve({
-            codOs,
-            numero: typeof codOs === "string" && codOs.startsWith("OS-") ? codOs : `OS-${codOs}`,
-            status: "5 - Não Iniciada",
-            codStatus: 5,
-            cliente: "Cliente Mock",
-            codCliente: 1,
-            placa: "ABC-1D23",
-            dtAbertura: new Date().toISOString(),
-            nomeContato: "Motorista Mock",
-            ddd: "15",
-            telefone: "988358196",
-            categoria: "1 - MANUTENÇÃO CORRETIVA",
-            descricaoCategoria: "MANUTENÇÃO CORRETIVA",
-          }),
-        300,
-      ),
-    );
-  }
+  if (isMockOn()) return mockBuscarOSPorCodigo(codOs, codAtendimento);
 
   return unoGet<OSDetalhe>(
     `servico/osw0001/${encodeURIComponent(String(codOs))}/${encodeURIComponent(String(codAtendimento))}`,
