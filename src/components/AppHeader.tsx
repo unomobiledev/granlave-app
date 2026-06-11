@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Settings } from "lucide-react";
+import { Home, Settings } from "lucide-react";
 import { useTrucksStore, isTruckInProgress } from "@/store/trucks";
 import { NewTruckDialog } from "@/components/NewTruckDialog";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,11 @@ export function AppHeader({ extra }: { extra?: ReactNode }) {
               Modo mock
             </Label>
           </div>
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/" aria-label="Ir para a home">
+              <Home className="h-4 w-4" />
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link to="/configuracoes/checklist" className="gap-1">
               <Settings className="h-3.5 w-3.5" /> Configurações
