@@ -69,6 +69,32 @@ function hydrateEstado(
   return out;
 }
 
+function isRespostaCompleta(
+  item: ChecklistItemModelo,
+  state: RespostaState | undefined,
+): boolean {
+  if (!state) return false;
+  const resp = (state.resposta ?? "").trim();
+  const obs = (state.observacao ?? "").trim();
+  if (item.tipoResposta === 1) {
+    if (resp !== "OK" && resp !== "NOK") return false;
+    if (resp === "NOK" && !obs) return false;
+    return true;
+  }
+  if (item.tipoResposta === 3) {
+    const opcoes = (item.comboFixo ?? "")
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!opcoes.includes(resp)) return false;
+    const isSimNao =
+      opcoes.length > 0 && opcoes.every((o) => ["Sim", "Não", "N/A"].includes(o));
+    if (isSimNao && resp === "Não" && !obs) return false;
+    return true;
+  }
+  return resp.length > 0;
+}
+
 export function ChecklistItens({
   idModeloChecklist,
   codOs,
@@ -95,6 +121,7 @@ export function ChecklistItens({
   );
 
   const [estado, setEstado] = useState<EstadoMap>({});
+  const [attemptedSave, setAttemptedSave] = useState(false);
 
   // Rehidrata sempre que itens ou checklist gravado mudarem
   useEffect(() => {
@@ -189,7 +216,11 @@ export function ChecklistItens({
 
   const grupos = agruparItens(itensQ.data);
   const algumDirty = Object.values(estado).some((s) => s.dirty);
-  const podeSalvar = !gravado || algumDirty;
+  const faltantes = itensQ.data.filter(
+    (it) => !isRespostaCompleta(it, estado[it.idModeloChecklistPergunta]),
+  );
+  const completo = faltantes.length === 0;
+  const podeSalvar = completo && (!gravado || algumDirty);
 
   const updateItem = (id: number, patch: Partial<RespostaState>) => {
     setEstado((prev) => ({
@@ -217,6 +248,13 @@ export function ChecklistItens({
                     dirty: false,
                   }
                 }
+                missing={
+                  attemptedSave &&
+                  !isRespostaCompleta(
+                    item,
+                    estado[item.idModeloChecklistPergunta],
+                  )
+                }
                 onChange={(patch) =>
                   updateItem(item.idModeloChecklistPergunta, patch)
                 }
@@ -227,12 +265,19 @@ export function ChecklistItens({
       ))}
 
       <div className="flex items-center justify-between border-t border-neutral-200 pt-3">
-        <div className="text-xs text-muted-foreground">
-          {gravado
-            ? algumDirty
-              ? "Alterações não salvas"
-              : "Checklist salvo"
-            : "Checklist ainda não gravado"}
+        <div
+          className={cn(
+            "text-xs",
+            !completo ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {!completo
+            ? `Faltam ${faltantes.length} ${faltantes.length === 1 ? "resposta" : "respostas"}`
+            : gravado
+              ? algumDirty
+                ? "Alterações não salvas"
+                : "Checklist salvo"
+              : "Checklist ainda não gravado"}
         </div>
         <div className="flex gap-2">
           {algumDirty && (
@@ -252,7 +297,15 @@ export function ChecklistItens({
             type="button"
             size="sm"
             disabled={!podeSalvar || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+            title={!completo ? "Responda todos os itens para salvar" : undefined}
+            onClick={() => {
+              if (!completo) {
+                setAttemptedSave(true);
+                toast.error("Responda todos os itens obrigatórios");
+                return;
+              }
+              saveMutation.mutate();
+            }}
           >
             {saveMutation.isPending && (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -281,17 +334,27 @@ function agruparItens(itens: ChecklistItemModelo[]) {
 function ChecklistItem({
   item,
   state,
+  missing,
   onChange,
 }: {
   item: ChecklistItemModelo;
   state: RespostaState;
+  missing?: boolean;
   onChange: (patch: Partial<RespostaState>) => void;
 }) {
   return (
-    <li className="rounded-md border border-neutral-200 bg-background p-3">
+    <li
+      className={cn(
+        "rounded-md border bg-background p-3",
+        missing ? "border-destructive/50" : "border-neutral-200",
+      )}
+    >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
-          <div className="text-sm text-foreground">{item.pergunta}</div>
+          <div className="text-sm text-foreground">
+            {item.pergunta}
+            <span className="ml-0.5 text-destructive">*</span>
+          </div>
           {item.descricao ? (
             <div className="mt-0.5 text-xs text-muted-foreground">
               {item.descricao}
