@@ -164,11 +164,15 @@ function situacaoFromCodStatus(cod?: number): OSStatus | undefined {
 }
 
 function mockToOS(m: MockOS): OS {
+  const codOs = Number(String(m.numero).replace(/\D/g, "")) || Number(m.id) || 1;
   return {
     id: m.id,
+    codOs,
+    codAtendimento: codOs,
     numero: m.numero,
     placa: m.placa,
     cliente: m.cliente,
+    nomeCliente: m.cliente,
     dataEmissao: m.dataEmissao,
     situacao: m.situacao,
     codStatus: m.codStatus,
