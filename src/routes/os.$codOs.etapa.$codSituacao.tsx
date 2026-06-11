@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
 import { getChecklistIdForStatus } from "@/lib/uno/status-checklist-map";
 import { ChecklistItens } from "@/components/os/ChecklistItens";
+import { osDetalheQueryOptions } from "./os.$codOs";
+import { useTrucksStore } from "@/store/trucks";
 
 const situacoesQueryOptions = queryOptions({
   queryKey: ["uno", "os", "situacoes"],
@@ -31,11 +33,28 @@ function EtapaChecklistPage() {
   const codigo = Number(codSituacao);
 
   const { data: situacoes } = useSuspenseQuery(situacoesQueryOptions);
+  const { data: osDetalhe } = useSuspenseQuery(
+    osDetalheQueryOptions(codOs, Number(atend)),
+  );
+  const getOrAdoptTruckForOS = useTrucksStore((s) => s.getOrAdoptTruckForOS);
 
   const situacao = situacoes.find((s) => s.codigo === codigo);
   const idModelo = situacao
     ? getChecklistIdForStatus(situacao.codStatus)
     : undefined;
+
+  // Etapa Recepção (status 1) abre o Stage1Wizard hidratado com a OS já criada.
+  if (situacao?.codStatus === 1) {
+    const truckId = getOrAdoptTruckForOS(osDetalhe);
+    return (
+      <Navigate
+        to="/etapa/$stageId/$truckId"
+        params={{ stageId: "1", truckId }}
+      />
+    );
+  }
+
+  const isFila = situacao?.codStatus === 2;
 
   return (
     <>
@@ -54,8 +73,12 @@ function EtapaChecklistPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Checklist</h2>
-        {idModelo ? (
+        <h2 className="mb-3 text-sm font-semibold text-foreground">
+          {isFila ? "Etapa" : "Checklist"}
+        </h2>
+        {isFila ? (
+          <p className="text-xs text-muted-foreground">Sem ações nesta etapa.</p>
+        ) : idModelo ? (
           <ChecklistItens
             idModeloChecklist={idModelo}
             codOs={codOs}

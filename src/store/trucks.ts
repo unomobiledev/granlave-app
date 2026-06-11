@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { STAGES } from "@/data/stages";
 import { safeRandomUUID } from "@/lib/uuid";
+import type { OSDetalhe } from "@/lib/uno/os-detalhe";
 
 export type OkNok = { status: "ok" | "nok"; nc?: string };
 export type ChecklistValue = boolean | string | OkNok;
@@ -16,6 +17,8 @@ export type FinalizacaoAntecipada = {
 export type Truck = {
   id: string;
   os?: string;
+  /** Código numérico da OS no ERP UNO, quando o truck foi adotado do ERP. */
+  codOsErp?: number;
   placa: string;
   cliente: string;
   motorista: string;
@@ -33,6 +36,7 @@ type State = {
   osCounter: number;
   addTruck: (data: { placa: string; cliente: string; motorista: string; os?: string }) => void;
   createDraftTruck: () => string;
+  getOrAdoptTruckForOS: (osDetalhe: OSDetalhe) => string;
   updateTruck: (truckId: string, patch: Partial<Pick<Truck, "placa" | "cliente" | "motorista" | "os">>) => void;
   setChecklistItem: (truckId: string, stageId: number, itemId: string, value: ChecklistValue) => void;
   advanceStage: (truckId: string) => void;
@@ -47,7 +51,7 @@ type State = {
 
 export const useTrucksStore = create<State>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       trucks: [],
       completed: [],
       osCounter: 2345,
@@ -85,6 +89,54 @@ export const useTrucksStore = create<State>()(
               enteredStageAt: Date.now(),
               createdAt: Date.now(),
               checklists: {},
+            },
+          ],
+        }));
+        return id;
+      },
+      getOrAdoptTruckForOS: (osDetalhe) => {
+        const codOsErp = Number(osDetalhe.codOs);
+        const osStr = String(osDetalhe.numero ?? osDetalhe.codOs);
+        const cliente = formatClienteFromOS(osDetalhe);
+        const placa = osDetalhe.placa ?? "";
+        const motorista = osDetalhe.nomeContato ?? "";
+        const codClienteStr =
+          osDetalhe.codCliente != null ? String(osDetalhe.codCliente) : "";
+        const cnpj =
+          typeof (osDetalhe as Record<string, unknown>).cnpj === "string"
+            ? ((osDetalhe as Record<string, unknown>).cnpj as string)
+            : "";
+
+        const existing = get().trucks.find(
+          (t) =>
+            (Number.isFinite(codOsErp) && t.codOsErp === codOsErp) ||
+            (!!t.os && t.os === osStr),
+        );
+        if (existing) return existing.id;
+
+        const id = safeRandomUUID();
+        set((s) => ({
+          trucks: [
+            ...s.trucks,
+            {
+              id,
+              os: osStr,
+              codOsErp: Number.isFinite(codOsErp) ? codOsErp : undefined,
+              placa,
+              cliente,
+              motorista,
+              stageId: 1,
+              enteredStageAt: Date.now(),
+              createdAt: Date.now(),
+              checklists: {
+                1: {
+                  cliente_id: codClienteStr,
+                  cliente,
+                  cliente_cnpj: cnpj,
+                  placa_1: placa,
+                  motorista,
+                },
+              },
             },
           ],
         }));
@@ -322,4 +374,15 @@ export function checklistProgress(truck: Truck, stageId: number) {
     return v === true;
   }).length;
   return { done, total: stage.checklist.length };
+}
+
+function formatClienteFromOS(os: OSDetalhe): string {
+  const rec = os as Record<string, unknown>;
+  const nomeCliente = rec.nomeCliente;
+  if (typeof nomeCliente === "string" && nomeCliente.length > 0) return nomeCliente;
+  if (typeof os.cliente === "string") return os.cliente;
+  if (os.cliente && typeof os.cliente === "object") {
+    return os.cliente.nome ?? os.cliente.razaoSocial ?? "";
+  }
+  return "";
 }
