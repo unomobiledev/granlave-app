@@ -1,4 +1,5 @@
 import { unoPost, unoPut } from "./client";
+import { isMockOn } from "./mock-mode";
 
 /**
  * Gravação das respostas do checklist da OS.
@@ -20,6 +21,7 @@ export type RespostaChecklistInput = {
 export function criarRespostasChecklist(
   respostas: RespostaChecklistInput[],
 ): Promise<unknown> {
+  if (isMockOn()) return Promise.resolve({ mock: true, respostas });
   return unoPost("servico/osd0005", respostas);
 }
 
@@ -29,6 +31,9 @@ export function atualizarRespostaChecklist(
   codChecklistResposta: string | number,
   body: { resposta: string; observacao?: string },
 ): Promise<unknown> {
+  if (isMockOn()) {
+    return Promise.resolve({ mock: true, codOs, codAtendimento, codChecklistResposta, ...body });
+  }
   return unoPut(
     `servico/osw0001/${encodeURIComponent(String(codOs))}/${encodeURIComponent(
       String(codAtendimento),
