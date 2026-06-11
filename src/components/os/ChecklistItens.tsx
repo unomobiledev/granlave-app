@@ -121,6 +121,7 @@ export function ChecklistItens({
   );
 
   const [estado, setEstado] = useState<EstadoMap>({});
+  const [attemptedSave, setAttemptedSave] = useState(false);
 
   // Rehidrata sempre que itens ou checklist gravado mudarem
   useEffect(() => {
@@ -215,7 +216,11 @@ export function ChecklistItens({
 
   const grupos = agruparItens(itensQ.data);
   const algumDirty = Object.values(estado).some((s) => s.dirty);
-  const podeSalvar = !gravado || algumDirty;
+  const faltantes = itensQ.data.filter(
+    (it) => !isRespostaCompleta(it, estado[it.idModeloChecklistPergunta]),
+  );
+  const completo = faltantes.length === 0;
+  const podeSalvar = completo && (!gravado || algumDirty);
 
   const updateItem = (id: number, patch: Partial<RespostaState>) => {
     setEstado((prev) => ({
@@ -243,6 +248,13 @@ export function ChecklistItens({
                     dirty: false,
                   }
                 }
+                missing={
+                  attemptedSave &&
+                  !isRespostaCompleta(
+                    item,
+                    estado[item.idModeloChecklistPergunta],
+                  )
+                }
                 onChange={(patch) =>
                   updateItem(item.idModeloChecklistPergunta, patch)
                 }
@@ -253,12 +265,19 @@ export function ChecklistItens({
       ))}
 
       <div className="flex items-center justify-between border-t border-neutral-200 pt-3">
-        <div className="text-xs text-muted-foreground">
-          {gravado
-            ? algumDirty
-              ? "Alterações não salvas"
-              : "Checklist salvo"
-            : "Checklist ainda não gravado"}
+        <div
+          className={cn(
+            "text-xs",
+            !completo ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {!completo
+            ? `Faltam ${faltantes.length} ${faltantes.length === 1 ? "resposta" : "respostas"}`
+            : gravado
+              ? algumDirty
+                ? "Alterações não salvas"
+                : "Checklist salvo"
+              : "Checklist ainda não gravado"}
         </div>
         <div className="flex gap-2">
           {algumDirty && (
@@ -278,7 +297,15 @@ export function ChecklistItens({
             type="button"
             size="sm"
             disabled={!podeSalvar || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+            title={!completo ? "Responda todos os itens para salvar" : undefined}
+            onClick={() => {
+              if (!completo) {
+                setAttemptedSave(true);
+                toast.error("Responda todos os itens obrigatórios");
+                return;
+              }
+              saveMutation.mutate();
+            }}
           >
             {saveMutation.isPending && (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
