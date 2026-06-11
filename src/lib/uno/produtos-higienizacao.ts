@@ -1,4 +1,9 @@
 import { unoGet, unoPost } from "./client";
+import { isMockOn } from "./mock-mode";
+import {
+  mockListarProdutosHigienizacao,
+  mockCadastrarProdutoHigienizacao,
+} from "./produtos-higienizacao.mock";
 
 /** Shape bruto retornado pelo endpoint osw0008 / cdf0201 do UNO. */
 export type ProdutoHigienizacaoUno = {
@@ -52,6 +57,7 @@ function mapProduto(p: ProdutoHigienizacaoUno): ProdutoHigienizacao {
 export async function listarProdutosHigienizacao(
   opts: { page?: number; size?: number } = {},
 ): Promise<ProdutosPage> {
+  if (isMockOn()) return mockListarProdutosHigienizacao(opts);
   const page = opts.page ?? 0;
   const size = opts.size ?? 20;
   const resp = await unoGet<PageResponse<ProdutoHigienizacaoUno>>(
@@ -82,6 +88,14 @@ export type NovoProdutoInput = {
 export async function cadastrarProdutoHigienizacao(
   input: NovoProdutoInput,
 ): Promise<ProdutoHigienizacao> {
+  if (isMockOn()) {
+    return mockCadastrarProdutoHigienizacao({
+      codProduto: input.codProduto,
+      descComercial: input.descComercial,
+      descTecnica: input.descTecnica,
+      un: input.un,
+    });
+  }
   const payload = {
     tpAquisicao: 1,
     situacao: 1,
