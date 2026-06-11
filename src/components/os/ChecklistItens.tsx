@@ -334,17 +334,27 @@ function agruparItens(itens: ChecklistItemModelo[]) {
 function ChecklistItem({
   item,
   state,
+  missing,
   onChange,
 }: {
   item: ChecklistItemModelo;
   state: RespostaState;
+  missing?: boolean;
   onChange: (patch: Partial<RespostaState>) => void;
 }) {
   return (
-    <li className="rounded-md border border-neutral-200 bg-background p-3">
+    <li
+      className={cn(
+        "rounded-md border bg-background p-3",
+        missing ? "border-destructive/50" : "border-neutral-200",
+      )}
+    >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
-          <div className="text-sm text-foreground">{item.pergunta}</div>
+          <div className="text-sm text-foreground">
+            {item.pergunta}
+            <span className="ml-0.5 text-destructive">*</span>
+          </div>
           {item.descricao ? (
             <div className="mt-0.5 text-xs text-muted-foreground">
               {item.descricao}
