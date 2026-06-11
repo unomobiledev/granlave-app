@@ -69,6 +69,32 @@ function hydrateEstado(
   return out;
 }
 
+function isRespostaCompleta(
+  item: ChecklistItemModelo,
+  state: RespostaState | undefined,
+): boolean {
+  if (!state) return false;
+  const resp = (state.resposta ?? "").trim();
+  const obs = (state.observacao ?? "").trim();
+  if (item.tipoResposta === 1) {
+    if (resp !== "OK" && resp !== "NOK") return false;
+    if (resp === "NOK" && !obs) return false;
+    return true;
+  }
+  if (item.tipoResposta === 3) {
+    const opcoes = (item.comboFixo ?? "")
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!opcoes.includes(resp)) return false;
+    const isSimNao =
+      opcoes.length > 0 && opcoes.every((o) => ["Sim", "Não", "N/A"].includes(o));
+    if (isSimNao && resp === "Não" && !obs) return false;
+    return true;
+  }
+  return resp.length > 0;
+}
+
 export function ChecklistItens({
   idModeloChecklist,
   codOs,
