@@ -1,4 +1,6 @@
 import { unoGet } from "./client";
+import { isMockOn } from "./mock-mode";
+import { mockListarSituacoesOS } from "./os-situacoes.mock";
 
 /**
  * Situações (status/etapas) cadastradas para Ordens de Serviço no UNO ERP.
@@ -22,6 +24,7 @@ export type OSInicializarResponse = {
 };
 
 export async function listarSituacoesOS(): Promise<OSSituacao[]> {
+  if (isMockOn()) return mockListarSituacoesOS();
   const data = await unoGet<OSInicializarResponse>(
     "servico/osq0001/inicializar",
   );

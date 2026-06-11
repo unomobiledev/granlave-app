@@ -1,4 +1,4 @@
-import type { Cliente } from "./clientes";
+import type { Cliente, ClienteUno, ClientesPage } from "./clientes";
 
 const MOCK_CLIENTES: Cliente[] = [
   { id: "1", razaoSocial: "Via Group Participações Ltda", nomeFantasia: "Via Group", cnpj: "12.345.678/0001-90" },
@@ -48,4 +48,27 @@ export async function mockCadastrarCliente(input: {
   const novo: Cliente = { id: String(nextId++), ...input };
   MOCK_CLIENTES.unshift(novo);
   return novo;
+}
+
+export function mockListarClientesPaginado(opts: { page?: number; size?: number } = {}): ClientesPage {
+  const page = opts.page ?? 0;
+  const size = opts.size ?? 20;
+  const start = page * size;
+  const items = MOCK_CLIENTES.slice(start, start + size);
+  const raw: ClienteUno[] = items.map((c) => ({
+    codCliente: Number(c.id) || 0,
+    nomeCliente: c.nomeFantasia,
+    razaoSocial: c.razaoSocial,
+    cnpj: c.cnpj,
+    cidade: "São Paulo",
+    siglaUf: "SP",
+    situacao: 1,
+  }));
+  return {
+    items,
+    raw,
+    page,
+    totalPages: Math.max(1, Math.ceil(MOCK_CLIENTES.length / size)),
+    totalElements: MOCK_CLIENTES.length,
+  };
 }

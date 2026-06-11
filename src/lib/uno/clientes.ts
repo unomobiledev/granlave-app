@@ -2,7 +2,9 @@ import { unoGet, unoPost } from "./client";
 import {
   mockBuscarUltimoClientePorPlaca,
   mockCadastrarCliente,
+  mockListarClientesPaginado,
 } from "./clientes.mock";
+import { isMockOn } from "./mock-mode";
 
 export type Cliente = {
   id: string;
@@ -57,6 +59,7 @@ function mapClienteUno(c: ClienteUno): Cliente {
 export async function listarClientesPaginado(
   opts: { page?: number; size?: number } = {},
 ): Promise<ClientesPage> {
+  if (isMockOn()) return mockListarClientesPaginado(opts);
   const page = opts.page ?? 0;
   const size = opts.size ?? 20;
   const resp = await unoGet<PageResponse<ClienteUno>>(
@@ -72,17 +75,13 @@ export async function listarClientesPaginado(
   };
 }
 
-// Quando as APIs reais da UNO estiverem definidas, basta trocar USE_MOCK = false
-// e ajustar os endpoints abaixo.
-const USE_MOCK = false;
-
 /**
  * Busca o último cliente atendido para uma placa específica.
  * TODO(UNO): substituir mock pela chamada real.
  * Endpoint sugerido: GET /cliente/by-placa/{placa}
  */
 export async function buscarUltimoClientePorPlaca(placa: string): Promise<Cliente | null> {
-  if (USE_MOCK) return mockBuscarUltimoClientePorPlaca(placa);
+  if (isMockOn()) return mockBuscarUltimoClientePorPlaca(placa);
   return unoGet<Cliente | null>(`cliente/by-placa/${encodeURIComponent(placa)}`);
 }
 
@@ -96,6 +95,6 @@ export async function cadastrarCliente(input: {
   razaoSocial: string;
   cnpj: string;
 }): Promise<Cliente> {
-  if (USE_MOCK) return mockCadastrarCliente(input);
+  if (isMockOn()) return mockCadastrarCliente(input);
   return unoPost<Cliente>("cliente", input);
 }

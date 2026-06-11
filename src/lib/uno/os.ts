@@ -5,6 +5,7 @@ import {
 } from "./os.mock";
 import { OS_STATUS, OS_COD_STATUS, type OSStatus } from "./os.types";
 import { DEV_RESTRICT_OS_STATUS_1_6, DEV_OS_STATUS_ALLOWED } from "./dev-flags";
+import { isMockOn } from "./mock-mode";
 
 export { OS_STATUS, type OSStatus };
 
@@ -49,14 +50,8 @@ export function listarUltimasOS(limit = 10) {
   );
 }
 
-// Flag única para alternar entre mock e API real.
-// Quando o contrato UNO estiver definido, trocar para `false` e ajustar
-// os endpoints abaixo. A UI não muda.
-const USE_MOCK = false;
-
 /**
  * Lista OSs filtradas por status.
- * TODO(UNO): substituir mock pela chamada real.
  * Endpoint sugerido: GET servico/osq0001?situacao={status}&page=0&size={limit}
  */
 export async function listarOSsPorStatus(
@@ -64,7 +59,7 @@ export async function listarOSsPorStatus(
   opts: { limit?: number } = {},
 ): Promise<OS[]> {
   const limit = opts.limit ?? 50;
-  if (USE_MOCK) {
+  if (isMockOn()) {
     const rows = await mockListarOSsPorStatus(status, { limit });
     return rows.map(mockToOS);
   }

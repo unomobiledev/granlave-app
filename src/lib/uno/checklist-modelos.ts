@@ -1,5 +1,10 @@
 import { unoGet } from "./client";
 import type { PageResponse } from "./os";
+import { isMockOn } from "./mock-mode";
+import {
+  mockListarModelosChecklist,
+  mockListarItensModeloChecklist,
+} from "./checklist-modelos.mock";
 
 /**
  * Modelos de checklist e seus itens.
@@ -29,6 +34,7 @@ export type ChecklistItemModelo = {
 export async function listarModelosChecklist(
   opts: { size?: number } = {},
 ): Promise<ChecklistModelo[]> {
+  if (isMockOn()) return mockListarModelosChecklist();
   const size = opts.size ?? 50;
   const data = await unoGet<PageResponse<ChecklistModelo>>(
     `cadastro/cdw0372?page=0&requiresCounts=true&size=${size}`,
@@ -39,6 +45,7 @@ export async function listarModelosChecklist(
 export async function listarItensModeloChecklist(
   idModeloChecklist: number,
 ): Promise<ChecklistItemModelo[]> {
+  if (isMockOn()) return mockListarItensModeloChecklist(idModeloChecklist);
   const data = await unoGet<ChecklistItemModelo[] | PageResponse<ChecklistItemModelo>>(
     `cadastro/cdd0372?idModeloChecklist=${idModeloChecklist}`,
   );

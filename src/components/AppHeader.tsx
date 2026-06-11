@@ -1,22 +1,52 @@
 import type { ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTrucksStore, isTruckInProgress } from "@/store/trucks";
 import { NewTruckDialog } from "@/components/NewTruckDialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useMockMode } from "@/lib/uno/mock-mode";
 
 export function AppHeader({ extra }: { extra?: ReactNode }) {
   const trucks = useTrucksStore((s) => s.trucks);
   const emAtendimento = trucks.filter(isTruckInProgress).length;
   const naFila = trucks.length - emAtendimento;
+  const { enabled: mockOn, setEnabled: setMockOn } = useMockMode();
+  const queryClient = useQueryClient();
+
+  const handleToggleMock = (on: boolean) => {
+    setMockOn(on);
+    queryClient.invalidateQueries();
+  };
 
   return (
     <div className="border-b border-neutral-200 bg-white px-6 py-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Controle de Higienização</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-foreground">Controle de Higienização</h1>
+            {mockOn ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                Mock
+              </span>
+            ) : null}
+          </div>
           <p className="text-xs text-muted-foreground">
             {emAtendimento} em atendimento · {naFila} na fila
           </p>
         </div>
-        <NewTruckDialog />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="mock-mode-toggle"
+              checked={mockOn}
+              onCheckedChange={handleToggleMock}
+            />
+            <Label htmlFor="mock-mode-toggle" className="cursor-pointer text-xs text-muted-foreground">
+              Modo mock
+            </Label>
+          </div>
+          <NewTruckDialog />
+        </div>
       </div>
       {extra ? <div className="mt-4">{extra}</div> : null}
     </div>

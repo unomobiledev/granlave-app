@@ -1,4 +1,5 @@
 import { unoPost } from "./client";
+import { isMockOn } from "./mock-mode";
 
 /**
  * Criação de OS no UNO ERP.
@@ -8,8 +9,6 @@ import { unoPost } from "./client";
  * (categoria, modalidade, colaborador, etc.) ficam hardcoded até o UNO
  * definir como expor essas escolhas.
  */
-
-const USE_MOCK = false;
 
 export type CriarOSInput = {
   /** Código numérico do cliente no UNO. */
@@ -65,7 +64,7 @@ export async function criarOS(input: CriarOSInput): Promise<OSCriada> {
     codStatusDefeito: 5,
   };
 
-  if (USE_MOCK) {
+  if (isMockOn()) {
     const codOs = Math.floor(2400 + Math.random() * 600);
     return new Promise((resolve) =>
       setTimeout(
