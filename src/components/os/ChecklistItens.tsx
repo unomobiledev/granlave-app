@@ -1,10 +1,24 @@
-import { useMemo, useState } from "react";
-import { useQuery, queryOptions } from "@tanstack/react-query";
-import { Check, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  queryOptions,
+} from "@tanstack/react-query";
+import { Check, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 import {
   listarItensModeloChecklist,
   type ChecklistItemModelo,
 } from "@/lib/uno/checklist-modelos";
+import {
+  listarChecklistsDaOS,
+  criarChecklist,
+  atualizarRespostaChecklist,
+  getCodColaboradorFromToken,
+  type ChecklistGravado,
+  type ChecklistCreatePayload,
+} from "@/lib/uno/checklist-respostas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,30 +31,172 @@ export const itensChecklistQueryOptions = (idModeloChecklist: number) =>
     staleTime: 5 * 60_000,
   });
 
+const checklistDaOSQueryOptions = (
+  codOs: string | number,
+  codAtendimento: number,
+) =>
+  queryOptions({
+    queryKey: ["uno", "checklist", "os", String(codOs), codAtendimento],
+    queryFn: () => listarChecklistsDaOS(codOs, codAtendimento),
+    staleTime: 30_000,
+  });
+
+type RespostaState = {
+  resposta: string;
+  observacao: string;
+  idChecklistResposta?: number;
+  dirty: boolean;
+};
+
+type EstadoMap = Record<number, RespostaState>;
+
+function hydrateEstado(
+  itens: ChecklistItemModelo[],
+  gravado: ChecklistGravado | undefined,
+): EstadoMap {
+  const out: EstadoMap = {};
+  for (const it of itens) {
+    const r = gravado?.respostas.find(
+      (x) => x.idModeloChecklistPergunta === it.idModeloChecklistPergunta,
+    );
+    out[it.idModeloChecklistPergunta] = {
+      resposta: r?.resposta ?? "",
+      observacao: r?.observacao ?? "",
+      idChecklistResposta: r?.idChecklistResposta,
+      dirty: false,
+    };
+  }
+  return out;
+}
+
 export function ChecklistItens({
   idModeloChecklist,
+  codOs,
+  codAtendimento,
+  codSituacao,
+  nomeChecklist,
 }: {
   idModeloChecklist: number;
+  codOs: string | number;
+  codAtendimento: number;
+  codSituacao: number;
+  nomeChecklist: string;
 }) {
-  const { data, isLoading, error } = useQuery(
-    itensChecklistQueryOptions(idModeloChecklist),
+  const queryClient = useQueryClient();
+  const itensQ = useQuery(itensChecklistQueryOptions(idModeloChecklist));
+  const checklistsQ = useQuery(
+    checklistDaOSQueryOptions(codOs, codAtendimento),
   );
 
-  if (isLoading) {
+  const gravado = useMemo(
+    () =>
+      checklistsQ.data?.find((c) => c.idModeloChecklist === idModeloChecklist),
+    [checklistsQ.data, idModeloChecklist],
+  );
+
+  const [estado, setEstado] = useState<EstadoMap>({});
+
+  // Rehidrata sempre que itens ou checklist gravado mudarem
+  useEffect(() => {
+    if (itensQ.data) setEstado(hydrateEstado(itensQ.data, gravado));
+  }, [itensQ.data, gravado]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!itensQ.data) return;
+      if (!gravado) {
+        // POST cadastro/checklist com payload completo
+        const codColaborador = getCodColaboradorFromToken();
+        const now = new Date().toISOString();
+        const payload: ChecklistCreatePayload = {
+          idModeloChecklist,
+          nomeChecklist,
+          situacao: codSituacao,
+          dtInicio: now,
+          dtFim: null,
+          observacao: "",
+          origem: 1,
+          codOportunidade: 0,
+          codOs: Number(codOs),
+          codAtendimento,
+          codOcorrencia: 0,
+          resultado: 0,
+          respostas: itensQ.data.map((it) => {
+            const s = estado[it.idModeloChecklistPergunta] ?? {
+              resposta: "",
+              observacao: "",
+              dirty: false,
+            };
+            return {
+              idModeloChecklistPergunta: it.idModeloChecklistPergunta,
+              pergunta: it.pergunta,
+              resposta: s.resposta,
+              observacao: s.observacao || undefined,
+              dtResposta: now,
+              codColaborador,
+            };
+          }),
+        };
+        await criarChecklist(payload);
+      } else {
+        // PUT por resposta dirty (com idChecklistResposta)
+        const tasks: Array<Promise<unknown>> = [];
+        for (const it of itensQ.data) {
+          const s = estado[it.idModeloChecklistPergunta];
+          if (!s || !s.dirty || !s.idChecklistResposta) continue;
+          tasks.push(
+            atualizarRespostaChecklist(
+              codOs,
+              codAtendimento,
+              s.idChecklistResposta,
+              {
+                resposta: s.resposta,
+                observacao: s.observacao || undefined,
+              },
+            ),
+          );
+        }
+        if (tasks.length === 0) return;
+        await Promise.all(tasks);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Checklist salvo");
+      queryClient.invalidateQueries({
+        queryKey: ["uno", "checklist", "os", String(codOs), codAtendimento],
+      });
+    },
+    onError: (err) => {
+      toast.error("Falha ao salvar checklist", {
+        description: (err as Error).message,
+      });
+    },
+  });
+
+  if (itensQ.isLoading || checklistsQ.isLoading) {
     return <p className="text-xs text-muted-foreground">Carregando checklist…</p>;
   }
-  if (error) {
+  if (itensQ.error) {
     return (
       <p className="text-xs text-destructive">
-        Erro ao carregar checklist: {(error as Error).message}
+        Erro ao carregar checklist: {(itensQ.error as Error).message}
       </p>
     );
   }
-  if (!data || data.length === 0) {
+  if (!itensQ.data || itensQ.data.length === 0) {
     return <p className="text-xs text-muted-foreground">Sem itens neste modelo.</p>;
   }
 
-  const grupos = agruparItens(data);
+  const grupos = agruparItens(itensQ.data);
+  const algumDirty = Object.values(estado).some((s) => s.dirty);
+  const podeSalvar = !gravado || algumDirty;
+
+  const updateItem = (id: number, patch: Partial<RespostaState>) => {
+    setEstado((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], ...patch, dirty: true },
+    }));
+  };
 
   return (
     <div className="space-y-5">
@@ -54,11 +210,57 @@ export function ChecklistItens({
               <ChecklistItem
                 key={item.idModeloChecklistPergunta}
                 item={item}
+                state={
+                  estado[item.idModeloChecklistPergunta] ?? {
+                    resposta: "",
+                    observacao: "",
+                    dirty: false,
+                  }
+                }
+                onChange={(patch) =>
+                  updateItem(item.idModeloChecklistPergunta, patch)
+                }
               />
             ))}
           </ul>
         </section>
       ))}
+
+      <div className="flex items-center justify-between border-t border-neutral-200 pt-3">
+        <div className="text-xs text-muted-foreground">
+          {gravado
+            ? algumDirty
+              ? "Alterações não salvas"
+              : "Checklist salvo"
+            : "Checklist ainda não gravado"}
+        </div>
+        <div className="flex gap-2">
+          {algumDirty && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={saveMutation.isPending}
+              onClick={() =>
+                itensQ.data && setEstado(hydrateEstado(itensQ.data, gravado))
+              }
+            >
+              Cancelar
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            disabled={!podeSalvar || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            {saveMutation.isPending && (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            )}
+            Salvar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -76,7 +278,15 @@ function agruparItens(itens: ChecklistItemModelo[]) {
   return Array.from(map.entries()).map(([grupo, itens]) => ({ grupo, itens }));
 }
 
-function ChecklistItem({ item }: { item: ChecklistItemModelo }) {
+function ChecklistItem({
+  item,
+  state,
+  onChange,
+}: {
+  item: ChecklistItemModelo;
+  state: RespostaState;
+  onChange: (patch: Partial<RespostaState>) => void;
+}) {
   return (
     <li className="rounded-md border border-neutral-200 bg-background p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -89,38 +299,57 @@ function ChecklistItem({ item }: { item: ChecklistItemModelo }) {
           ) : null}
         </div>
         <div className="shrink-0">
-          <RespostaInput item={item} />
+          <RespostaInput item={item} state={state} onChange={onChange} />
         </div>
       </div>
     </li>
   );
 }
 
-function RespostaInput({ item }: { item: ChecklistItemModelo }) {
+function RespostaInput({
+  item,
+  state,
+  onChange,
+}: {
+  item: ChecklistItemModelo;
+  state: RespostaState;
+  onChange: (patch: Partial<RespostaState>) => void;
+}) {
   if (item.tipoResposta === 1) {
-    return <BoolOKNOK />;
+    return <BoolOKNOK state={state} onChange={onChange} />;
   }
   if (item.tipoResposta === 3) {
-    return <ComboInput comboFixo={item.comboFixo ?? ""} />;
+    return (
+      <ComboInput
+        comboFixo={item.comboFixo ?? ""}
+        state={state}
+        onChange={onChange}
+      />
+    );
   }
   // tipoResposta === 2 (livre)
-  return <LivreInput pergunta={item.pergunta} />;
+  return <LivreInput pergunta={item.pergunta} state={state} onChange={onChange} />;
 }
 
 /* ----- Tipo 1: OK/NOK booleano, com campo de não conformidade ----- */
-function BoolOKNOK() {
-  const [resposta, setResposta] = useState<"OK" | "NOK" | null>(null);
-  const [observacao, setObservacao] = useState("");
+function BoolOKNOK({
+  state,
+  onChange,
+}: {
+  state: RespostaState;
+  onChange: (patch: Partial<RespostaState>) => void;
+}) {
+  const resposta = state.resposta === "OK" || state.resposta === "NOK" ? state.resposta : null;
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex gap-2">
-        <OKButton active={resposta === "OK"} onClick={() => setResposta("OK")} />
-        <NOKButton active={resposta === "NOK"} onClick={() => setResposta("NOK")} />
+        <OKButton active={resposta === "OK"} onClick={() => onChange({ resposta: "OK", observacao: "" })} />
+        <NOKButton active={resposta === "NOK"} onClick={() => onChange({ resposta: "NOK" })} />
       </div>
       {resposta === "NOK" && (
         <Textarea
-          value={observacao}
-          onChange={(e) => setObservacao(e.target.value)}
+          value={state.observacao}
+          onChange={(e) => onChange({ observacao: e.target.value })}
           placeholder="Descreva a não conformidade…"
           className="min-h-[64px] w-full text-sm sm:w-72"
         />
@@ -130,7 +359,15 @@ function BoolOKNOK() {
 }
 
 /* ----- Tipo 3: combo a partir de comboFixo (Sim|Não|N/A, Aprovado|Reprovado|N/A, …) ----- */
-function ComboInput({ comboFixo }: { comboFixo: string }) {
+function ComboInput({
+  comboFixo,
+  state,
+  onChange,
+}: {
+  comboFixo: string;
+  state: RespostaState;
+  onChange: (patch: Partial<RespostaState>) => void;
+}) {
   const opcoes = useMemo(
     () =>
       comboFixo
@@ -139,8 +376,7 @@ function ComboInput({ comboFixo }: { comboFixo: string }) {
         .filter(Boolean),
     [comboFixo],
   );
-  const [selected, setSelected] = useState<string | null>(null);
-  const [observacao, setObservacao] = useState("");
+  const selected = state.resposta || null;
 
   const isSimNao =
     opcoes.length > 0 &&
@@ -165,7 +401,12 @@ function ComboInput({ comboFixo }: { comboFixo: string }) {
               size="sm"
               variant={active ? "default" : "outline"}
               className={cn(cls)}
-              onClick={() => setSelected(opc)}
+              onClick={() =>
+                onChange({
+                  resposta: opc,
+                  observacao: opc === "Não" ? state.observacao : "",
+                })
+              }
             >
               {isSimNao && opc === "Sim" ? (
                 <Check className="mr-1 h-3.5 w-3.5" />
@@ -179,8 +420,8 @@ function ComboInput({ comboFixo }: { comboFixo: string }) {
       </div>
       {showNC && (
         <Textarea
-          value={observacao}
-          onChange={(e) => setObservacao(e.target.value)}
+          value={state.observacao}
+          onChange={(e) => onChange({ observacao: e.target.value })}
           placeholder="Descreva a não conformidade…"
           className="min-h-[64px] w-full text-sm sm:w-72"
         />
@@ -197,13 +438,20 @@ const NUMERICO_PREFIXOS = [
   "Resultado do",
   "Quantidade",
 ];
-function LivreInput({ pergunta }: { pergunta: string }) {
-  const [valor, setValor] = useState("");
+function LivreInput({
+  pergunta,
+  state,
+  onChange,
+}: {
+  pergunta: string;
+  state: RespostaState;
+  onChange: (patch: Partial<RespostaState>) => void;
+}) {
   const isNumerico = NUMERICO_PREFIXOS.some((p) => pergunta.startsWith(p));
   return (
     <Input
-      value={valor}
-      onChange={(e) => setValor(e.target.value)}
+      value={state.resposta}
+      onChange={(e) => onChange({ resposta: e.target.value })}
       inputMode={isNumerico ? "decimal" : "text"}
       placeholder={isNumerico ? "Valor" : "Resposta"}
       className="w-full sm:w-72"

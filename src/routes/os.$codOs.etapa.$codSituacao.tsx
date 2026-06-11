@@ -56,7 +56,18 @@ function EtapaChecklistPage() {
       <Card className="p-6">
         <h2 className="mb-3 text-sm font-semibold text-foreground">Checklist</h2>
         {idModelo ? (
-          <ChecklistItens idModeloChecklist={idModelo} />
+          <ChecklistItens
+            idModeloChecklist={idModelo}
+            codOs={codOs}
+            codAtendimento={Number(atend)}
+            codSituacao={codigo}
+            nomeChecklist={
+              situacao?.descricao ??
+              situacao?.descAbrev ??
+              situacao?.descricaoAbreviada ??
+              `Checklist ${idModelo}`
+            }
+          />
         ) : (
           <p className="text-xs text-muted-foreground">
             Nenhum modelo de checklist configurado para esta etapa. Configure em{" "}

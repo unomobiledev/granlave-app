@@ -175,7 +175,13 @@ function EtapaCard({
       {aberta && (
         <div className="border-t border-neutral-200 pt-4">
           {idModelo ? (
-            <ChecklistItens idModeloChecklist={idModelo} />
+            <ChecklistItens
+              idModeloChecklist={idModelo}
+              codOs={codOs}
+              codAtendimento={atend}
+              codSituacao={situacao.codigo}
+              nomeChecklist={titulo ?? `Checklist ${idModelo}`}
+            />
           ) : (
             <p className="text-xs text-muted-foreground">
               Nenhum modelo de checklist configurado para esta etapa. Configure em{" "}
