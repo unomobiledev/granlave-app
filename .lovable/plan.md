@@ -1,58 +1,55 @@
-# Gravar, carregar e editar respostas do checklist
+# Cards de etapa por `codStatus` (revisado)
 
-## Fluxo
+Comportamento dos cards do grid de etapas no detalhe da OS:
 
-No card de uma etapa (dentro do detalhe da OS):
+- **`codStatus === 1` (Recepção / cadastro da OS)** — card vira clicável; ao clicar, **navega para `/etapa/1/{truckId}`** (mesma tela do `Stage1Wizard`), só que com os dados da OS **já criada** carregados. **Não** expande accordion.
+- **`codStatus === 2` (Na fila)** — card continua visível e clicável; ao expandir, mostra apenas `"Sem ações nesta etapa."`. Sem checklist, sem ações.
+- **`codStatus >= 3`** — mantém o comportamento atual (`ChecklistItens` embutido + link "Abrir em tela cheia").
 
-1. Ao abrir o card, busca via `GET servico/osw0001/{codOs}/{codAtendimento}/checklist` os checklists já gravados desta OS/atendimento.
-2. Para o `idModeloChecklist` da etapa atual, se houver checklist correspondente → pré-preenche respostas e guarda `idChecklist` + `idChecklistResposta` por pergunta.
-3. Usuário edita as respostas. Botão **Salvar** no rodapé do card:
-   - **Sem checklist ainda** → `POST cadastro/checklist` com payload completo.
-   - **Checklist já existe** → para cada resposta marcada como `dirty`, `PUT servico/osw0001/{codOs}/{codAtendimento}/checklist/{codChecklistResposta}` com `{ resposta, observacao }`.
-4. Após sucesso, invalida a query do GET para refletir o estado salvo.
+A diferença chave: status 1 é "formulário de cadastro da OS". No fluxo de **Novo caminhão** ainda não existe OS (`truck.os` vazio) e o wizard chama `criarOS` no final. Aqui, a OS já existe, então precisamos hidratar o `truck` local a partir do `OSDetalhe` e o wizard pula a chamada de criação (lógica que já existe: `if (truck.os) { advanceStage(...); navigate(...); return; }`).
 
 ## Mudanças
 
-### 1. `src/lib/uno/checklist-respostas.ts`
-- Tipos `ChecklistCreatePayload` e `RespostaItemPayload` espelhando o schema do POST (idModeloChecklist, nomeChecklist, situacao, dtInicio, dtFim, observacao, origem, codOportunidade, codOs, codAtendimento, codOcorrencia, resultado, respostas[]).
-- Tipos `ChecklistGravado` / `RespostaGravada` para o GET.
-- `criarChecklist(payload)` → `POST cadastro/checklist` (substitui o atual `criarRespostasChecklist`).
-- `listarChecklistsDaOS(codOs, codAtendimento)` → `GET servico/osw0001/{codOs}/{codAtendimento}/checklist`.
-- Manter `atualizarRespostaChecklist(codOs, codAtendimento, codChecklistResposta, { resposta, observacao })`.
-- Mocks correspondentes (in-memory store que aceita POST/PUT e devolve no GET).
+### 1. `src/store/trucks.ts`
+Nova action:
 
-### 2. `src/components/os/ChecklistItens.tsx`
-Refatorar para estado controlado:
+```ts
+getOrAdoptTruckForOS(osDetalhe): string
+```
 
-- Props novas: `codOs`, `codAtendimento`, `codSituacao`, `nomeChecklist` (descrição do modelo).
-- `useQuery` do `listarChecklistsDaOS` para hidratar estado inicial (encontra o checklist com `idModeloChecklist` igual ao da etapa).
-- Estado local `Map<idModeloChecklistPergunta, { resposta, observacao?, idChecklistResposta?, dirty }>`.
-- Cada `RespostaInput` recebe `value` + `onChange` (sem `useState` próprio).
-- Botões no rodapé: **Salvar** e **Cancelar** (descarta para o último estado salvo).
-- `useMutation`:
-  - Criar: monta `ChecklistCreatePayload` e chama `criarChecklist`.
-  - Atualizar: `Promise.all` de `atualizarRespostaChecklist` para itens `dirty`.
-- `onSuccess`: `queryClient.invalidateQueries(["uno","checklist","os",codOs,codAtendimento])` + toast `sonner`.
+- Procura um truck com `os === String(osDetalhe.codOs)` ou `osCod === codOs`. Se existir, retorna o `id`.
+- Caso contrário, cria um draft (`createDraftTruck`) e popula:
+  - `os = String(osDetalhe.numero ?? osDetalhe.codOs)`
+  - `cliente = nome do cliente` (string ou `cliente.razaoSocial`)
+  - `placa = osDetalhe.placa ?? ""`
+  - `motorista = osDetalhe.nomeContato ?? ""`
+  - `stageId = 1`
+  - `checklists[1]`: preenche `cliente_id` (do `codCliente`), `cliente`, `cliente_cnpj` se vier, `placa_1`, `motorista`. Demais campos ficam vazios para o usuário completar/editar.
+- Persistir um campo extra opcional `codOsErp: number` no `Truck` para distinguir OSs vindas do ERP de drafts puramente locais (sem migração — campo opcional novo).
 
-### 3. Derivação dos campos do POST
-- `idModeloChecklist`, `situacao=codSituacao`, `codOs`, `codAtendimento`: props.
-- `dtInicio`: `new Date().toISOString()` no clique em Salvar; `dtFim`: `null`.
-- `origem: 1`, `codOportunidade: 0`, `codOcorrencia: 0`, `resultado: 0`, `observacao: ""`.
-- `nomeChecklist`: descrição do modelo.
-- `codColaborador`: derivado do token JWT no `localStorage` (campo `codigo` do payload já presente no token) com fallback `0`.
-- Mapeamento das respostas por `tipoResposta`:
-  - `1` (bool) → `"OK"` / `"NOK"`.
-  - `2` (livre) → string digitada.
-  - `3` (combo) → string da opção escolhida.
-- `respostas[i].observacao` só preenchida nos NOK/"Não".
-- `respostas[i].dtResposta`: `new Date().toISOString()`.
+### 2. `src/routes/os.$codOs.index.tsx` (`EtapaCard`)
+Refatorar para um switch por `situacao.codStatus`:
 
-### 4. Rotas que renderizam o checklist
-`src/routes/os.$codOs.index.tsx` e `src/routes/os.$codOs.etapa.$codSituacao.tsx`: passar `codOs`, `codAtendimento` (do search), `codSituacao` e `nomeChecklist` para `<ChecklistItens />`.
+```tsx
+const isRecepcao = situacao.codStatus === 1;
+const isFila     = situacao.codStatus === 2;
+```
 
-### 5. Mock
-Mantém um store em memória (`Map<codOs+codAtendimento, ChecklistGravado[]>`) para que POST/PUT/GET fiquem consistentes no modo mock.
+- `isRecepcao`: o card inteiro é um `<button>` que dispara handler `abrirRecepcao()`:
+  ```ts
+  const truckId = getOrAdoptTruckForOS(data /* OSDetalhe */);
+  navigate({ to: "/etapa/$stageId/$truckId", params: { stageId: "1", truckId } });
+  ```
+  Sem chevron, sem accordion, sem painel inferior. Mantém estilos `concluido/atual/pendente`. Como o `OSDetalhe` é necessário para hidratar, passar `osDetalhe` como prop do `SituacoesSection` para o `EtapaCard` (já temos via `useSuspenseQuery` na página).
+- `isFila`: mantém o accordion atual; o painel expandido renderiza só `<p className="text-xs text-muted-foreground">Sem ações nesta etapa.</p>` (sem chamar `ChecklistItens`, sem link de tela cheia).
+- Demais: comportamento atual inalterado.
+
+### 3. `src/routes/etapa.$stageId.$truckId.tsx`
+Sem mudança funcional. Como o `truck.os` virá preenchido para OSs adotadas do ERP, o `Stage1Wizard.handleAdvance` automaticamente pula `criarOS` e segue o fluxo de "OS já existe".
+
+### 4. `src/routes/os.$codOs.etapa.$codSituacao.tsx` (rota de tela cheia)
+Aplicar o mesmo switch: se `codStatus` da situação for `1`, redirecionar (`<Navigate>`) para `/etapa/1/{truckId}` usando `getOrAdoptTruckForOS`. Se for `2`, mostrar a mesma mensagem "Sem ações nesta etapa.".
 
 ## Fora do escopo
-- Validação de obrigatoriedade (ex.: NOK sem observação trava o Salvar) — adiciono se quiser.
-- Botão Finalizar etapa / mudar status da OS após salvar checklist.
+- Sincronizar de volta para o ERP os campos editados no `Stage1Wizard` (hoje só gravam no store local). Posso fazer num próximo passo se quiser — provavelmente um `PUT servico/osf0001/{codOs}` ou endpoint específico que você indicar.
+- Pré-preencher mais campos do checklist da Recepção a partir do `OSDetalhe` (categoria, datas, etc.). Por ora só os essenciais (cliente, placa, motorista).
