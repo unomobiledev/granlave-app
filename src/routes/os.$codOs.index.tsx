@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Check, ChevronDown, Circle, CircleDot, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
 import { getChecklistIdForStatus } from "@/lib/uno/status-checklist-map";
 import { buildEtapas, type EtapaTimeline } from "@/lib/uno/os-etapas";
 import { ChecklistItens } from "@/components/os/ChecklistItens";
+import { useTrucksStore } from "@/store/trucks";
+import type { OSDetalhe } from "@/lib/uno/os-detalhe";
 import { cn } from "@/lib/utils";
 
 const situacoesQueryOptions = queryOptions({
@@ -40,7 +42,12 @@ function OSDetalhePage() {
 
   return (
     <>
-      <SituacoesSection codOs={codOs} atend={atend} codStatusAtual={data.codStatus} />
+      <SituacoesSection
+        codOs={codOs}
+        atend={atend}
+        codStatusAtual={data.codStatus}
+        osDetalhe={data}
+      />
       <div className="flex justify-end">
         <Button variant="outline" asChild>
           <Link to="/">Voltar ao painel</Link>
@@ -54,10 +61,12 @@ function SituacoesSection({
   codOs,
   atend,
   codStatusAtual,
+  osDetalhe,
 }: {
   codOs: string;
   atend: number;
   codStatusAtual?: number;
+  osDetalhe: OSDetalhe;
 }) {
   const { data: situacoes } = useSuspenseQuery(situacoesQueryOptions);
 
@@ -74,6 +83,7 @@ function SituacoesSection({
             etapa={e}
             codOs={codOs}
             atend={atend}
+            osDetalhe={osDetalhe}
             aberta={aberta === e.situacao.codigo}
             onToggle={() =>
               setAberta((prev) =>
@@ -91,16 +101,20 @@ function EtapaCard({
   etapa,
   codOs,
   atend,
+  osDetalhe,
   aberta,
   onToggle,
 }: {
   etapa: EtapaTimeline;
   codOs: string;
   atend: number;
+  osDetalhe: OSDetalhe;
   aberta: boolean;
   onToggle: () => void;
 }) {
   const { situacao, estado } = etapa;
+  const navigate = useNavigate();
+  const getOrAdoptTruckForOS = useTrucksStore((s) => s.getOrAdoptTruckForOS);
   const titulo =
     situacao.descAbrev ?? situacao.descricaoAbreviada ?? situacao.descricao;
 
@@ -129,20 +143,30 @@ function EtapaCard({
 
   const idModelo = getChecklistIdForStatus(situacao.codStatus);
   const disabled = estado === "pendente";
+  const isRecepcao = situacao.codStatus === 1;
+  const isFila = situacao.codStatus === 2;
+
+  const abrirRecepcao = () => {
+    const truckId = getOrAdoptTruckForOS(osDetalhe);
+    navigate({
+      to: "/etapa/$stageId/$truckId",
+      params: { stageId: "1", truckId },
+    });
+  };
 
   return (
     <Card
       className={cn(
         "flex h-full flex-col gap-3 p-4 transition",
         styles,
-        aberta && "sm:col-span-2 lg:col-span-3",
+        aberta && !isRecepcao && "sm:col-span-2 lg:col-span-3",
       )}
     >
       <button
         type="button"
-        onClick={disabled ? undefined : onToggle}
+        onClick={disabled ? undefined : isRecepcao ? abrirRecepcao : onToggle}
         disabled={disabled}
-        aria-expanded={aberta}
+        aria-expanded={isRecepcao ? undefined : aberta}
         className={cn(
           "flex w-full flex-col gap-3 text-left",
           !disabled && "cursor-pointer",
@@ -152,7 +176,7 @@ function EtapaCard({
           <div className="shrink-0">{icon}</div>
           {disabled ? (
             <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-          ) : (
+          ) : isRecepcao ? null : (
             <ChevronDown
               className={cn(
                 "h-4 w-4 text-muted-foreground transition-transform",
@@ -172,9 +196,13 @@ function EtapaCard({
         <div className="text-xs text-muted-foreground">{label}</div>
       </button>
 
-      {aberta && (
+      {aberta && !isRecepcao && (
         <div className="border-t border-neutral-200 pt-4">
-          {idModelo ? (
+          {isFila ? (
+            <p className="text-xs text-muted-foreground">
+              Sem ações nesta etapa.
+            </p>
+          ) : idModelo ? (
             <ChecklistItens
               idModeloChecklist={idModelo}
               codOs={codOs}
@@ -191,17 +219,19 @@ function EtapaCard({
               .
             </p>
           )}
-          <div className="mt-4 flex justify-end">
-            <Button variant="outline" size="sm" asChild>
-              <Link
-                to="/os/$codOs/etapa/$codSituacao"
-                params={{ codOs, codSituacao: String(situacao.codigo) }}
-                search={{ atend }}
-              >
-                Abrir em tela cheia
-              </Link>
-            </Button>
-          </div>
+          {!isFila && (
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" size="sm" asChild>
+                <Link
+                  to="/os/$codOs/etapa/$codSituacao"
+                  params={{ codOs, codSituacao: String(situacao.codigo) }}
+                  search={{ atend }}
+                >
+                  Abrir em tela cheia
+                </Link>
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </Card>
