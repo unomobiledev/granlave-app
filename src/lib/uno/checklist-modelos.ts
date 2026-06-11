@@ -21,14 +21,26 @@ export type ChecklistModelo = {
   codStatus?: number;
 } & Record<string, unknown>;
 
+/**
+ * Item (pergunta) de um modelo de checklist conforme `cadastro/cdd0372`.
+ *
+ * `tipoResposta`:
+ *  - 1 → Resposta booleana (OK/NOK)
+ *  - 2 → Resposta livre (texto ou número, conforme heurística do enunciado)
+ *  - 3 → Resposta combo (opções vindas em `comboFixo`, ex.: "Sim|Não|N/A")
+ */
+export type TipoResposta = 1 | 2 | 3;
+
 export type ChecklistItemModelo = {
-  id: number;
+  idModeloChecklistPergunta: number;
   idModeloChecklist?: number;
-  pergunta?: string;
-  descricao?: string;
-  tipoResposta?: string;
-  obrigatorio?: boolean;
+  grupoPergunta?: string;
+  pergunta: string;
   ordem?: number;
+  tipoResposta: TipoResposta;
+  tipoRespostaDescricao?: string;
+  descricao?: string;
+  comboFixo?: string;
 } & Record<string, unknown>;
 
 export async function listarModelosChecklist(
@@ -51,19 +63,4 @@ export async function listarItensModeloChecklist(
   );
   if (Array.isArray(data)) return data;
   return data.content ?? [];
-}
-
-/**
- * Resolve o modelo de checklist vinculado a uma situação da OS.
- * Tenta `codSituacao` (1:1 com `codigo`) e cai para `codStatus`.
- */
-export function findModeloForSituacao(
-  modelos: ChecklistModelo[],
-  situacao: { codigo: number; codStatus: number },
-): ChecklistModelo | undefined {
-  return modelos.find(
-    (m) =>
-      m.codSituacao === situacao.codigo ||
-      m.codStatus === situacao.codStatus,
-  );
 }
