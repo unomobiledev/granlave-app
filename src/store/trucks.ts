@@ -51,7 +51,7 @@ type State = {
 
 export const useTrucksStore = create<State>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       trucks: [],
       completed: [],
       osCounter: 2345,
@@ -107,13 +107,11 @@ export const useTrucksStore = create<State>()(
             ? ((osDetalhe as Record<string, unknown>).cnpj as string)
             : "";
 
-        const existing = useTrucksStore
-          .getState()
-          .trucks.find(
-            (t) =>
-              (Number.isFinite(codOsErp) && t.codOsErp === codOsErp) ||
-              (t.os && t.os === osStr),
-          );
+        const existing = get().trucks.find(
+          (t) =>
+            (Number.isFinite(codOsErp) && t.codOsErp === codOsErp) ||
+            (!!t.os && t.os === osStr),
+        );
         if (existing) return existing.id;
 
         const id = safeRandomUUID();
@@ -376,4 +374,15 @@ export function checklistProgress(truck: Truck, stageId: number) {
     return v === true;
   }).length;
   return { done, total: stage.checklist.length };
+}
+
+function formatClienteFromOS(os: OSDetalhe): string {
+  const rec = os as Record<string, unknown>;
+  const nomeCliente = rec.nomeCliente;
+  if (typeof nomeCliente === "string" && nomeCliente.length > 0) return nomeCliente;
+  if (typeof os.cliente === "string") return os.cliente;
+  if (os.cliente && typeof os.cliente === "object") {
+    return os.cliente.nome ?? os.cliente.razaoSocial ?? "";
+  }
+  return "";
 }
