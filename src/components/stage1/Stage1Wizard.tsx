@@ -15,23 +15,17 @@ import {
 } from "@/components/ui/select";
 import { useTrucksStore, type Truck } from "@/store/trucks";
 import {
-  buscarUltimoClientePorPlaca,
+  buscarCodItemPorPlaca,
   type Cliente,
 } from "@/lib/uno/clientes";
+import { buscarUltimoClientePorCodItem } from "@/lib/uno/os";
 import { criarOS } from "@/lib/uno/os-create";
 import { ClientePicker } from "./ClientePicker";
 import { ProdutoHigienizacaoPicker } from "./ProdutoHigienizacaoPicker";
-import { formatPlaca } from "@/lib/format/placa";
 import { type ProdutoHigienizacao } from "@/lib/uno/produtos-higienizacao";
 
-const TIPO_VEICULO_OPTIONS: { label: string; placas: number }[] = [
-  { label: "Truck Tanque (1 placa)", placas: 1 },
-  { label: "Cavalo / Carreta Tanque (2 placas)", placas: 2 },
-  { label: "Cavalo / Bitren e Rodotren (3 placas)", placas: 3 },
-];
-
-function placasCount(tipo: string): number {
-  return TIPO_VEICULO_OPTIONS.find((o) => o.label === tipo)?.placas ?? 0;
+function sanitizePlaca(v: string): string {
+  return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
 }
 
 function getStr(state: Record<string, unknown>, key: string): string {
@@ -47,13 +41,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   const allTrucks = useTrucksStore((s) => s.trucks);
 
   const state = truck.checklists[1] ?? {};
-  const tipoVeiculo = getStr(state, "tipo_veiculo");
-  const nPlacas = placasCount(tipoVeiculo);
-
-  // placa_1, placa_2, placa_3
-  const placa1 = getStr(state, "placa_1");
-  const placa2 = getStr(state, "placa_2");
-  const placa3 = getStr(state, "placa_3");
+  const placa = getStr(state, "placa_1");
 
   // Cliente (id + razão social armazenados separados)
   const clienteId = getStr(state, "cliente_id");
@@ -80,18 +68,10 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleTipo = (v: string) => {
-    setItem("tipo_veiculo", v);
-    // limpar placas extras se diminuiu
-    const n = placasCount(v);
-    if (n < 3) setItem("placa_3", "");
-    if (n < 2) setItem("placa_2", "");
-  };
-
-  const setPlaca = (idx: 1 | 2 | 3, value: string) => {
-    const masked = formatPlaca(value);
-    setItem(`placa_${idx}`, masked);
-    if (idx === 1) updateTruck(truck.id, { placa: masked });
+  const setPlaca = (value: string) => {
+    const clean = sanitizePlaca(value);
+    setItem("placa_1", clean);
+    updateTruck(truck.id, { placa: clean });
   };
 
   // --- Lookup por placa ---
@@ -104,10 +84,11 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const handleBuscarPlaca = async () => {
-    if (!placa1.trim()) return;
+    if (!placa.trim()) return;
     setLookupState({ status: "loading" });
     try {
-      const c = await buscarUltimoClientePorPlaca(placa1.trim());
+      const codItem = await buscarCodItemPorPlaca(placa.trim());
+      const c = codItem != null ? await buscarUltimoClientePorCodItem(codItem) : null;
       if (c) setLookupState({ status: "found", cliente: c });
       else {
         setLookupState({ status: "notfound" });
@@ -146,11 +127,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   }, [state, truck.id, truck.motorista, updateTruck]);
 
   // --- Validações ---
-  const placasOk =
-    nPlacas >= 1 &&
-    placa1.trim().length > 0 &&
-    (nPlacas < 2 || placa2.trim().length > 0) &&
-    (nPlacas < 3 || placa3.trim().length > 0);
+  const placaOk = placa.trim().length > 0;
   const clienteOk = clienteId.length > 0 && clienteRazao.length > 0;
 
   const requiredFinal = [
@@ -166,7 +143,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     "posicao_fila",
   ];
   const finalOk = requiredFinal.every((k) => getStr(state, k).trim().length > 0);
-  const canAdvance = !!tipoVeiculo && placasOk && clienteOk && finalOk;
+  const canAdvance = placaOk && clienteOk && finalOk;
 
   const [creating, setCreating] = useState(false);
 
@@ -179,12 +156,21 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     setCreating(true);
     try {
       const motorista = getStr(state, "motorista");
+      const ddd = getStr(state, "ddd");
+      const telefone = getStr(state, "telefone");
       const codClienteNum = Number(clienteId);
       const resp = await criarOS({
         codCliente: Number.isFinite(codClienteNum) && codClienteNum > 0 ? codClienteNum : 1,
         nomeContato: motorista || truck.motorista || "—",
+        ddd: ddd || undefined,
+        telefone: telefone || undefined,
       });
-      updateTruck(truck.id, { os: String(resp.numero ?? resp.codOs) });
+      const codOsNum = Number(resp.codOs);
+      updateTruck(truck.id, {
+        os: String(resp.numero ?? resp.codOs),
+        codOsErp: Number.isFinite(codOsNum) ? codOsNum : undefined,
+        codAtendimentoErp: resp.codAtendimento,
+      });
       advanceStage(truck.id);
       navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
     } catch (err) {
@@ -214,85 +200,39 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
   return (
     <div className="space-y-6">
       {/* Passo A */}
-      <StepCard step="A" title="Tipo de veículo">
-        <Select value={tipoVeiculo} onValueChange={handleTipo}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o tipo de veículo..." />
-          </SelectTrigger>
-          <SelectContent>
-            {TIPO_VEICULO_OPTIONS.map((opt) => (
-              <SelectItem key={opt.label} value={opt.label}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <StepCard step="A" title="Placa do veículo">
+        <div className="space-y-1.5">
+          <Label htmlFor="placa_1">Placa</Label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <Input
+              id="placa_1"
+              value={placa}
+              onChange={(e) => setPlaca(e.target.value)}
+              placeholder="ABC1D23"
+              maxLength={7}
+              className="flex-1 font-mono uppercase"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2 sm:shrink-0"
+              onClick={handleBuscarPlaca}
+              disabled={!placa.trim() || lookupState.status === "loading"}
+            >
+              {lookupState.status === "loading" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Buscar cliente
+            </Button>
+          </div>
+        </div>
       </StepCard>
 
       {/* Passo B */}
-      {nPlacas > 0 && (
-        <StepCard step="B" title="Placas do veículo">
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="placa_1">Placa 1</Label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <Input
-                  id="placa_1"
-                  value={placa1}
-                  onChange={(e) => setPlaca(1, e.target.value)}
-                  placeholder="ABC-1D23"
-                  maxLength={8}
-                  className="flex-1 font-mono uppercase"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="gap-2 sm:shrink-0"
-                  onClick={handleBuscarPlaca}
-                  disabled={!placa1.trim() || lookupState.status === "loading"}
-                >
-                  {lookupState.status === "loading" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                  Buscar cliente pela placa
-                </Button>
-              </div>
-            </div>
-            {nPlacas >= 2 && (
-              <div className="space-y-1.5">
-                <Label htmlFor="placa_2">Placa 2</Label>
-                <Input
-                  id="placa_2"
-                  value={placa2}
-                  onChange={(e) => setPlaca(2, e.target.value)}
-                  placeholder="ABC-1D23"
-                  maxLength={8}
-                  className="font-mono uppercase"
-                />
-              </div>
-            )}
-            {nPlacas >= 3 && (
-              <div className="space-y-1.5">
-                <Label htmlFor="placa_3">Placa 3</Label>
-                <Input
-                  id="placa_3"
-                  value={placa3}
-                  onChange={(e) => setPlaca(3, e.target.value)}
-                  placeholder="ABC-1D23"
-                  maxLength={8}
-                  className="font-mono uppercase"
-                />
-              </div>
-            )}
-          </div>
-        </StepCard>
-      )}
-
-      {/* Passo C */}
-      {nPlacas > 0 && (
-        <StepCard step="C" title="Cliente">
+      {(lookupState.status !== "idle" || clienteId) && (
+        <StepCard step="B" title="Cliente">
           {lookupState.status === "found" && !pickerOpen ? (
             <Card className="flex items-start justify-between gap-3 border-primary/40 bg-primary/5 p-4">
               <div>
@@ -344,7 +284,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Clique em <strong>Buscar cliente pela placa</strong> ou{" "}
+              Clique em <strong>Buscar cliente</strong> ou{" "}
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
@@ -358,11 +298,13 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
         </StepCard>
       )}
 
-      {/* Passo D */}
+      {/* Passo C */}
       {clienteOk && (
-        <StepCard step="D" title="Dados da recepção">
+        <StepCard step="C" title="Dados da recepção">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Motorista" id="motorista" value={getStr(state, "motorista")} onChange={(v) => setItem("motorista", v)} />
+            <Field label="DDD" id="ddd" value={getStr(state, "ddd")} onChange={(v) => setItem("ddd", v.replace(/\D/g, "").slice(0, 3))} />
+            <Field label="Telefone" id="telefone" value={getStr(state, "telefone")} onChange={(v) => setItem("telefone", v.replace(/\D/g, "").slice(0, 11))} />
             <Field label="Transportador" id="transportador" value={getStr(state, "transportador")} onChange={(v) => setItem("transportador", v)} />
             <Field label="Indústria de carregamento" id="industria" value={getStr(state, "industria")} onChange={(v) => setItem("industria", v)} />
             <Field label="Produto a higienizar" id="produto_higienizar" value={getStr(state, "produto_higienizar")} onChange={(v) => setItem("produto_higienizar", v)} />

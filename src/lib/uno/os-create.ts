@@ -23,6 +23,7 @@ export type CriarOSInput = {
 
 export type OSCriada = {
   codOs: number | string;
+  codAtendimento?: number;
   numero?: string | number;
   [key: string]: unknown;
 };
@@ -41,7 +42,7 @@ export async function criarOS(input: CriarOSInput): Promise<OSCriada> {
   const payload = {
     qtd: 1,
     dtAbertura: isoDate,
-    tpOs: 1,
+    tpOs: 2,
     status: "5 - Não Iniciada",
     codStatus: 5,
     codColaboradorImplant: 1,
@@ -49,14 +50,12 @@ export async function criarOS(input: CriarOSInput): Promise<OSCriada> {
     codColaborador: 1,
     codModalidade: 1,
     codCategoria: 1,
-    categoria: "1 - MANUTENÇÃO CORRETIVA",
-    descricaoCategoria: "MANUTENÇÃO CORRETIVA",
+    categoria: "1 - HIGIENIZAÇÃO",
+    descricaoCategoria: "HIGIENIZAÇÃO",
     dtPrevisaoConclusao: isoDate,
     dtComprometida: isoDate,
     origem: 1,
     codContato: 1,
-    codOs: "",
-    codAtendimento: "",
     prioridade: 5,
     nomeContato: input.nomeContato,
     ddd: input.ddd ?? "",
@@ -68,11 +67,15 @@ export async function criarOS(input: CriarOSInput): Promise<OSCriada> {
     const codOs = Math.floor(2400 + Math.random() * 600);
     return new Promise((resolve) =>
       setTimeout(
-        () => resolve({ codOs, numero: `OS-${codOs}` }),
+        () => resolve({ codOs, codAtendimento: 1, numero: String(codOs) }),
         400,
       ),
     );
   }
 
-  return unoPost<OSCriada>("servico/osf0001", payload);
+  const resp = await unoPost<Record<string, unknown>>("servico/osf0001", payload);
+  const codOs = resp.codOs as number | string;
+  const codAtendimento =
+    typeof resp.codAtendimento === "number" ? resp.codAtendimento : undefined;
+  return { ...resp, codOs, codAtendimento, numero: String(codOs) };
 }
