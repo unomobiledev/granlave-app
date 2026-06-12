@@ -1,11 +1,12 @@
-## Layout dos campos de higienização e finais
+## Corrigir status inicial da OS
 
-Mudanças em `src/components/stage1/Stage1Wizard.tsx`:
+A OS é criada com `codStatus: 5` / `status: "5 - Não Iniciada"` porque está hardcoded em `src/lib/uno/os-create.ts`. Deve ser status 2 (veículo na fila).
 
-1. **Sistema × Produto lado a lado**: remover o `sm:col-span-2` do `<div>` do "Produto de higienização" para que ele ocupe a coluna direita ao lado de "Sistema de higienização" no grid de 2 colunas existente.
+### Mudança em `src/lib/uno/os-create.ts`
 
-2. **Anvisa / Lote combinados**: substituir os dois `<Field>` separados ("Registro Anvisa" e "Nº do lote") por um único campo composto, label "Registro Anvisa / Nº do lote", com dois `Input` lado a lado separados por uma `/` central. Cada input continua gravando em `anvisa` e `lote` respectivamente — a validação `requiredFinal` não muda.
+No `payload` de `criarOS`:
+- `status: "5 - Não Iniciada"` → `status: "2 - Veículo na Fila"`
+- `codStatus: 5` → `codStatus: 2`
+- `codStatusDefeito: 5` — **mantém** (não muda)
 
-3. **Posição na fila ao lado**: o `<Field>` de "Posição na fila" passa a ocupar a segunda coluna da mesma linha do campo composto Anvisa/Lote (grid de 2 colunas já existente). Sem `sm:col-span-2`.
-
-Nenhuma lógica de negócio, estado ou validação é alterada — somente a estrutura visual dos campos no grid.
+Nada mais é alterado.
