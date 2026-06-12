@@ -21,11 +21,23 @@ import {
 import { buscarUltimoClientePorCodItem } from "@/lib/uno/os";
 import { criarOS } from "@/lib/uno/os-create";
 import { ClientePicker } from "./ClientePicker";
-import { ProdutoHigienizacaoPicker } from "./ProdutoHigienizacaoPicker";
-import { type ProdutoHigienizacao } from "@/lib/uno/produtos-higienizacao";
+import {
+  listarProdutosReposicao,
+  type ProdutoHigienizacao,
+} from "@/lib/uno/produtos-higienizacao";
 
 function sanitizePlaca(v: string): string {
   return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+
+function formatCelular(digits: string): string {
+  const d = digits.replace(/\D/g, "").slice(0, 11);
+  if (d.length === 0) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10)
+    return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
 function getStr(state: Record<string, unknown>, key: string): string {
@@ -108,6 +120,9 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     updateTruck(truck.id, { cliente: c.razaoSocial });
     setLookupState({ status: "found", cliente: c });
     setPickerOpen(false);
+    // Cria a OS automaticamente assim que o cliente é confirmado,
+    // para que possamos carregar a lista de produtos de reposição.
+    void ensureOsCriada(c);
   };
 
   const limparCliente = () => {
@@ -147,38 +162,85 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
 
   const [creating, setCreating] = useState(false);
 
-  const handleAdvance = async () => {
-    if (truck.os) {
-      advanceStage(truck.id);
-      navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
-      return;
+  // Lista de produtos de higienização vinda do endpoint de reposição da OS.
+  const [produtos, setProdutos] = useState<ProdutoHigienizacao[]>([]);
+  const [loadingProdutos, setLoadingProdutos] = useState(false);
+  const [produtosErro, setProdutosErro] = useState<string | null>(null);
+
+  const carregarProdutos = async (codOs: number, codAtendimento: number) => {
+    setLoadingProdutos(true);
+    setProdutosErro(null);
+    try {
+      const list = await listarProdutosReposicao(codOs, codAtendimento);
+      setProdutos(list);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      setProdutosErro(msg);
+    } finally {
+      setLoadingProdutos(false);
     }
+  };
+
+  // Carrega produtos se a OS já existir ao montar.
+  useEffect(() => {
+    if (truck.codOsErp && truck.codAtendimentoErp) {
+      void carregarProdutos(truck.codOsErp, truck.codAtendimentoErp);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cria a OS no ERP (se ainda não existe) assim que o cliente é confirmado.
+  const ensureOsCriada = async (cliente: Cliente) => {
+    if (truck.codOsErp) return;
+    const codClienteNum = Number(cliente.id);
+    if (!Number.isFinite(codClienteNum) || codClienteNum <= 0) return;
     setCreating(true);
     try {
-      const motorista = getStr(state, "motorista");
-      const ddd = getStr(state, "ddd");
-      const telefone = getStr(state, "telefone");
-      const codClienteNum = Number(clienteId);
+      const motorista = getStr(state, "motorista") || truck.motorista || "—";
+      const digits = getStr(state, "celular_digits");
+      const ddd = digits.length >= 10 ? digits.slice(0, 2) : undefined;
+      const telefone = digits.length >= 10 ? digits.slice(2) : undefined;
       const resp = await criarOS({
-        codCliente: Number.isFinite(codClienteNum) && codClienteNum > 0 ? codClienteNum : 1,
-        nomeContato: motorista || truck.motorista || "—",
-        ddd: ddd || undefined,
-        telefone: telefone || undefined,
+        codCliente: codClienteNum,
+        nomeContato: motorista,
+        ddd,
+        telefone,
       });
       const codOsNum = Number(resp.codOs);
+      const codAt = resp.codAtendimento ?? 1;
       updateTruck(truck.id, {
         os: String(resp.numero ?? resp.codOs),
         codOsErp: Number.isFinite(codOsNum) ? codOsNum : undefined,
-        codAtendimentoErp: resp.codAtendimento,
+        codAtendimentoErp: codAt,
       });
-      advanceStage(truck.id);
-      navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
+      if (Number.isFinite(codOsNum)) {
+        void carregarProdutos(codOsNum, codAt);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast.error(`Falha ao abrir OS no UNO: ${msg}`);
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleAdvance = async () => {
+    if (!truck.os) {
+      // Caso o usuário avance sem ter passado pela criação automática
+      // (ex.: cliente já estava setado antes do refactor).
+      const cliente: Cliente = {
+        id: clienteId,
+        razaoSocial: clienteRazao,
+        nomeFantasia: getStr(state, "cliente_fantasia"),
+        cnpj: getStr(state, "cliente_cnpj"),
+      };
+      await ensureOsCriada(cliente);
+      if (!useTrucksStore.getState().trucks.find((t) => t.id === truck.id)?.os) {
+        return;
+      }
+    }
+    advanceStage(truck.id);
+    navigate({ to: "/caminhao/$truckId", params: { truckId: truck.id } });
   };
 
   // Auto-trigger lookup state on mount if cliente já selecionado
@@ -303,8 +365,23 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
         <StepCard step="C" title="Dados da recepção">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Motorista" id="motorista" value={getStr(state, "motorista")} onChange={(v) => setItem("motorista", v)} />
-            <Field label="DDD" id="ddd" value={getStr(state, "ddd")} onChange={(v) => setItem("ddd", v.replace(/\D/g, "").slice(0, 3))} />
-            <Field label="Telefone" id="telefone" value={getStr(state, "telefone")} onChange={(v) => setItem("telefone", v.replace(/\D/g, "").slice(0, 11))} />
+            <div className="space-y-1.5">
+              <Label htmlFor="celular" className="text-sm font-medium">
+                Celular
+              </Label>
+              <Input
+                id="celular"
+                value={getStr(state, "celular")}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                  setItem("celular_digits", digits);
+                  setItem("celular", formatCelular(digits));
+                }}
+                placeholder="(11) 98765-4321"
+                inputMode="numeric"
+                maxLength={16}
+              />
+            </div>
             <Field label="Transportador" id="transportador" value={getStr(state, "transportador")} onChange={(v) => setItem("transportador", v)} />
             <Field label="Indústria de carregamento" id="industria" value={getStr(state, "industria")} onChange={(v) => setItem("industria", v)} />
             <Field label="Produto a higienizar" id="produto_higienizar" value={getStr(state, "produto_higienizar")} onChange={(v) => setItem("produto_higienizar", v)} />
@@ -320,24 +397,39 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
             />
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-sm font-medium">Produto de higienização</Label>
-              <ProdutoHigienizacaoPicker
-                selected={
-                  getStr(state, "produto_higienizacao_id")
-                    ? {
-                        id: getStr(state, "produto_higienizacao_id"),
-                        codProduto: getStr(state, "produto_higienizacao_id"),
-                        descComercial: getStr(state, "produto_higienizacao"),
-                        descTecnica: getStr(state, "produto_higienizacao"),
-                        un: getStr(state, "produto_higienizacao_un"),
-                      }
-                    : undefined
-                }
-                onSelect={(p: ProdutoHigienizacao) => {
-                  setItem("produto_higienizacao", p.descComercial);
+              <Select
+                value={getStr(state, "produto_higienizacao_id")}
+                onValueChange={(v) => {
+                  const p = produtos.find((x) => x.codProduto === v);
+                  if (!p) return;
                   setItem("produto_higienizacao_id", p.codProduto);
+                  setItem("produto_higienizacao", p.descComercial);
                   setItem("produto_higienizacao_un", p.un);
                 }}
-              />
+                disabled={loadingProdutos || produtos.length === 0}
+              >
+                <SelectTrigger id="produto_higienizacao_select">
+                  <SelectValue
+                    placeholder={
+                      loadingProdutos
+                        ? "Carregando produtos..."
+                        : produtos.length === 0
+                          ? "Aguardando abertura da OS..."
+                          : "Selecione um produto"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {produtos.map((p) => (
+                    <SelectItem key={p.codProduto} value={p.codProduto}>
+                      {p.descComercial}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {produtosErro && (
+                <p className="text-xs text-destructive">{produtosErro}</p>
+              )}
             </div>
             <Field label="Registro Anvisa" id="anvisa" value={getStr(state, "anvisa")} onChange={(v) => setItem("anvisa", v)} />
             <Field label="Nº do lote" id="lote" value={getStr(state, "lote")} onChange={(v) => setItem("lote", v)} />
