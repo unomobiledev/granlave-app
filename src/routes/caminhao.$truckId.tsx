@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { AppHeader } from "@/components/AppHeader";
 import { listarStatusOSCadastrados } from "@/lib/uno/status-os-cadastrados";
 import { buildEtapas, type EtapaTimeline } from "@/lib/uno/os-etapas";
+import type { OSSituacao } from "@/lib/uno/os-situacoes";
 import { osDetalheQueryOptions } from "./os.$codOs";
 
 const statusOSQueryOptions = queryOptions({
@@ -110,16 +111,12 @@ function EtapasGrid({ truck }: { truck: Truck }) {
   const temOSNoErp =
     !!truck.codOsErp && !!truck.codAtendimentoErp && !!truck.os;
 
-  const codStatusAtual = temOSNoErp
-    ? undefined // será sobrescrito pelo hook abaixo
-    : 1; // draft local: sempre na Recepção
-
   return temOSNoErp ? (
     <EtapasGridFromOS truck={truck} situacoes={situacoes} />
   ) : (
     <EtapasGridLocal
       truck={truck}
-      etapas={buildEtapas(situacoes, codStatusAtual)}
+      etapas={buildEtapas(situacoes, 1)}
     />
   );
 }
@@ -129,7 +126,7 @@ function EtapasGridFromOS({
   situacoes,
 }: {
   truck: Truck;
-  situacoes: ReturnType<typeof buildEtapas> extends infer _ ? Parameters<typeof buildEtapas>[0] : never;
+  situacoes: OSSituacao[];
 }) {
   const { data: os } = useSuspenseQuery(
     osDetalheQueryOptions(String(truck.codOsErp), Number(truck.codAtendimentoErp)),
