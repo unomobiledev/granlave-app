@@ -115,8 +115,7 @@ function EtapaCard({
   const { situacao, estado } = etapa;
   const navigate = useNavigate();
   const getOrAdoptTruckForOS = useTrucksStore((s) => s.getOrAdoptTruckForOS);
-  const titulo =
-    situacao.descAbrev ?? situacao.descricaoAbreviada ?? situacao.descricao;
+  const titulo = formatSituacaoLabel(situacao);
 
   const styles =
     estado === "atual"
