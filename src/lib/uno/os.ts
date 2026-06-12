@@ -156,6 +156,7 @@ export type OSCardData = {
   dataEmissao?: string;
   situacao: OSStatus | string;
   descStatus?: string;
+  codStatus?: number;
   responsavel?: string;
   prioridade?: number;
   codAtendimento?: number;
@@ -193,6 +194,7 @@ export function mapOSToCardData(os: OS): OSCardData {
     dataEmissao: os.dtComprometida ?? os.dataEmissao ?? os.data,
     situacao: descStatus ?? "—",
     descStatus,
+    codStatus: typeof os.codStatus === "number" ? os.codStatus : undefined,
     responsavel: os.nomeResponsavel,
     prioridade: typeof os.prioridade === "number" ? os.prioridade : undefined,
     codAtendimento: typeof os.codAtendimento === "number" ? os.codAtendimento : undefined,
