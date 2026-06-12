@@ -101,12 +101,14 @@ export function ChecklistItens({
   codAtendimento,
   codSituacao,
   nomeChecklist,
+  onProgressChange,
 }: {
   idModeloChecklist: number;
   codOs: string | number;
   codAtendimento: number;
   codSituacao: number;
   nomeChecklist: string;
+  onProgressChange?: (done: number, total: number, saved: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const itensQ = useQuery(itensChecklistQueryOptions(idModeloChecklist));
@@ -221,6 +223,12 @@ export function ChecklistItens({
   );
   const completo = faltantes.length === 0;
   const podeSalvar = completo && (!gravado || algumDirty);
+
+  const total = itensQ.data.length;
+  const done = total - faltantes.length;
+  useEffect(() => {
+    onProgressChange?.(done, total, Boolean(gravado) && !algumDirty);
+  }, [done, total, gravado, algumDirty, onProgressChange]);
 
   const updateItem = (id: number, patch: Partial<RespostaState>) => {
     setEstado((prev) => ({
