@@ -39,3 +39,10 @@ export function mockCadastrarProdutoHigienizacao(input: {
   PRODUTOS.unshift(novo);
   return novo;
 }
+
+export function mockListarProdutosReposicao(): ProdutoHigienizacao[] {
+  return [
+    { id: "671720", codProduto: "671720", descComercial: "NO-BREAK URDIDEIRA PERFECTA", descTecnica: "NO-BREAK URDIDEIRA PERFECTA", un: "" },
+    { id: "671721", codProduto: "671721", descComercial: "DETERGENTE HIGIENIZADOR XYZ", descTecnica: "DETERGENTE HIGIENIZADOR XYZ", un: "" },
+  ];
+}
