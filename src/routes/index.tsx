@@ -23,6 +23,7 @@ import {
   type OSCardData,
 } from "@/lib/uno/os";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatOSStatusLabel } from "@/lib/uno/os-situacao-label";
 
 export const Route = createFileRoute("/")({
   head: () => ({
