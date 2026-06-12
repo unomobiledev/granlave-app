@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
 import { getChecklistIdForStatus } from "@/lib/uno/status-checklist-map";
+import { formatSituacaoLabel } from "@/lib/uno/os-situacao-label";
 import { ChecklistItens } from "@/components/os/ChecklistItens";
 import { osDetalheQueryOptions } from "./os.$codOs";
 import { useTrucksStore } from "@/store/trucks";
@@ -83,8 +84,7 @@ function EtapaChecklistPage() {
     .filter((s) => s.codigo > codigo)
     .sort((a, b) => a.codigo - b.codigo)[0];
 
-  const proximaLabel =
-    proxima?.descAbrev ?? proxima?.descricaoAbreviada ?? proxima?.descricao;
+  const proximaLabel = proxima ? formatSituacaoLabel(proxima) : undefined;
 
   const invalidateOs = () => {
     queryClient.invalidateQueries({
@@ -138,12 +138,7 @@ function EtapaChecklistPage() {
           OS {codOs} — Etapa #{codigo}
         </div>
         <h1 className="mt-1 text-xl font-semibold text-foreground">
-          {situacao
-            ? (situacao.descricao ??
-              situacao.descAbrev ??
-              situacao.descricaoAbreviada ??
-              `Etapa ${codigo}`)
-            : `Etapa ${codigo}`}
+          {situacao ? formatSituacaoLabel(situacao) : `Etapa ${codigo}`}
         </h1>
       </Card>
 
@@ -183,10 +178,7 @@ function EtapaChecklistPage() {
             codAtendimento={Number(atend)}
             codSituacao={codigo}
             nomeChecklist={
-              situacao?.descricao ??
-              situacao?.descAbrev ??
-              situacao?.descricaoAbreviada ??
-              `Checklist ${idModelo}`
+              situacao ? formatSituacaoLabel(situacao) : `Checklist ${idModelo}`
             }
             onProgressChange={(done, total, saved) =>
               setChecklistComplete(total > 0 && done === total && saved)

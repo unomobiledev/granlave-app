@@ -22,6 +22,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { listarStatusOSCadastrados } from "@/lib/uno/status-os-cadastrados";
 import { buildEtapas, type EtapaTimeline } from "@/lib/uno/os-etapas";
 import type { OSSituacao } from "@/lib/uno/os-situacoes";
+import { formatSituacaoLabel } from "@/lib/uno/os-situacao-label";
 import { osDetalheQueryOptions } from "./os.$codOs";
 
 const statusOSQueryOptions = queryOptions({
@@ -211,8 +212,7 @@ function EtapaCard({
         ? Loader2
         : Circle;
 
-  const titulo =
-    situacao.descricao ?? situacao.descAbrev ?? situacao.descricaoAbreviada ?? `Etapa ${situacao.codigo}`;
+  const titulo = formatSituacaoLabel(situacao);
 
   const linkProps = osCodOs
     ? ({

@@ -23,6 +23,7 @@ import {
   type OSCardData,
 } from "@/lib/uno/os";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatOSStatusLabel } from "@/lib/uno/os-situacao-label";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -293,7 +294,8 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
               </div>
             )}
             <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
-              {os.descStatus ?? `Etapa ${etapa} de ${STAGES.length}`}
+              {formatOSStatusLabel(os.codStatus, os.descStatus) ??
+                `Etapa ${etapa} de ${STAGES.length}`}
             </span>
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1">
