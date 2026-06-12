@@ -1,42 +1,35 @@
-# Etapas dinâmicas no /caminhao/$truckId
+# Cards "Veículos em atendimento" — 2 por linha + layout horizontal
 
-Hoje a tela "Etapas do processo" do `/caminhao/$truckId` itera o array estático `STAGES` (4 etapas hardcoded em `src/data/stages.ts`). Vamos passar a montar a grade a partir das situações de OS cadastradas no UNO (`GET cadastro/cdw0050`), exatamente como já fazemos em `/os/$codOs` via `listarSituacoesOS`.
+## Mudanças em `src/routes/index.tsx`
 
-A carga das etapas é independente da OS (lista global de status). O conteúdo de cada card (progresso do checklist, "Concluída/Em andamento/Pendente") continua vindo da OS vinculada ao truck.
+### Grid (linha 101)
+- `sm:grid-cols-2 xl:grid-cols-4` → `sm:grid-cols-2` (fica em 2 colunas em todos os breakpoints).
 
-## Mudanças
+### `AtendimentoCard` (linhas 255–308)
+Reorganizar para layout horizontal mais compacto e largo, aproveitando o espaço extra para mostrar `placa` (campo já disponível em `OSCardData` mas não exibido hoje).
 
-### 1. Novo client UNO: `listarStatusOSCadastrados`
-Arquivo: `src/lib/uno/status-os-cadastrados.ts`
-- `GET cadastro/cdw0050?page=0&requiresCounts=true&size=60&sort=codigo,asc`
-- Reusa `unoGet` (já injeta `Authorization` a partir do localStorage do ERP).
-- Tipo `StatusOSCadastrado { codigo, codStatus?, descricao, descAbrev?, indKanban?, ... }` — mesmo shape de `OSSituacao`, mantendo compatibilidade com `buildEtapas`.
-- Suporte a mock: se `isMockOn()`, devolve `mockListarSituacoesOS()` (já cobre 1..6).
-- Respeita `DEV_RESTRICT_OS_STATUS_1_6` no consumidor (mesma lógica do `buildEtapas`).
+Layout proposto (uma linha, três blocos):
+```
+[ícone 12x12]  [OS · Cliente · Responsável]   |   [Placa · Etapa · min]
+```
 
-> Mantemos `listarSituacoesOS` (osq0001/inicializar) intacto para não impactar a tela `/os/$codOs`. Se em uma rodada futura quisermos unificar, trocamos lá também.
+Detalhes:
+- Reduzir padding do card: `p-6` → `p-4`.
+- Ícone do caminhão: `h-14 w-14` → `h-12 w-12`; ícone interno `h-7 w-7` → `h-6 w-6`.
+- Remover o bloco inferior destacado (`mt-5 rounded-lg border bg-background/60 p-4`) — mover seu conteúdo (status + tempo + data) para a coluna direita, sem caixa interna, para deixar o card mais "fino" (menor altura).
+- Coluna esquerda (flex-1):
+  - `OS-xxxx` (mantém estilo atual)
+  - Nome do cliente (`text-base font-semibold`, truncate)
+  - Responsável com ícone `User` (se houver)
+- Separador vertical sutil (`border-l border-primary/20`) entre as colunas em ≥ sm.
+- Coluna direita (shrink-0, ~40% da largura ou min-w fixo):
+  - **Placa** com ícone (novo — usar ícone `Hash` ou texto "Placa"): `font-mono text-sm font-semibold`.
+  - Badge da etapa/status (`descStatus` ou `Etapa X de N`) — mesmo estilo atual.
+  - Tempo (`Clock` + `Xmin`) e data comprometida (`Calendar` + data) em linha única `text-[11px] text-muted-foreground`.
+- `ChevronRight` continua na ponta direita, alinhado verticalmente ao centro.
 
-### 2. `/caminhao/$truckId` passa a usar etapas do UNO
-Arquivo: `src/routes/caminhao.$truckId.tsx`
-- Adicionar `loader` com `ensureQueryData` da nova `statusOSQueryOptions` (queryKey `["uno","status-os","cdw0050"]`, `staleTime` 5 min).
-- Se o truck tem `codOsErp`+`codAtendimentoErp`, também `ensureQueryData(osDetalheQueryOptions(...))` para obter `codStatus` atual.
-- No componente:
-  - `useSuspenseQuery(statusOSQueryOptions)` → lista de status.
-  - Quando há OS vinculada: `useSuspenseQuery(osDetalheQueryOptions(...))` → `codStatusAtual`.
-  - `buildEtapas(situacoes, codStatusAtual)` decide concluído/atual/pendente (já filtra por `DEV_OS_STATUS_ALLOWED`).
-  - Renderizar um card por etapa, mantendo o visual atual (ícone, badge, descrição).
-  - Para o caminhão **sem OS** (draft local, sem `codOsErp`): considerar todas as etapas pendentes exceto `codStatus = 1` como "atual" (igual ao comportamento atual do `stageId=1`).
-- Link de cada card: se o truck tem OS no UNO, navegar para `/os/$codOs/etapa/$codSituacao?atend=...` (rota que já existe e trata Recepção como wizard). Sem OS no UNO, manter `/etapa/$stageId/$truckId` para o draft local (continua usando STAGES até a OS ser criada).
-- Substituir `STAGES.map(...)` na grade. Manter `description` vinda de `situacao.descricao` (ou `descAbrev` como fallback).
-- Progresso `checklist X/Y`: quando há OS no UNO, deixar "Checklist —" (sem números) por enquanto, pois os contadores vêm da OS via `ChecklistItens` (fora de escopo). Manter `checklistProgress(truck, stageId)` apenas para o fluxo draft.
+Resultado: card visivelmente mais largo, ~30% mais baixo, mostrando placa que antes não aparecia.
 
-### 3. Sem alterações em
-- `src/data/stages.ts` (continua servindo o wizard local da Recepção até a OS existir no UNO).
-- `src/store/trucks.ts` (truck local não muda).
-- `/os/$codOs` (segue usando `listarSituacoesOS`).
-
-## Critérios de aceite
-- Acessando `/caminhao/<id>` de um truck adotado da OS UNO, os cards refletem as situações cadastradas no `cdw0050` (não os 4 fixos).
-- Etapa atual destaca-se conforme `codStatus` da OS.
-- Em mock mode, comportamento idêntico (6 etapas 1..6).
-- `/os/$codOs` continua funcionando sem regressões.
+## Sem mudanças
+- `OSCardData` e mapeamento (placa já existe).
+- Demais cards (`QueueCard`, `ConcluidoCard`).
