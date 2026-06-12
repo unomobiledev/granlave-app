@@ -1,41 +1,25 @@
-## Objetivo
+## Liberar combo "Produto de higienização" antes da OS
 
-1. Criar a OS no ERP **somente** quando o usuário clicar em **"Abrir Ordem de Serviço"** (botão final da Etapa 1) — nunca antes.
-2. Permitir trocar o cliente livremente enquanto a OS ainda não foi aberta; bloquear a troca depois que `truck.codOsErp` existir.
+Hoje o combo só carrega depois que a OS é aberta porque usa `listarProdutosReposicao(codOs, codAtendimento)`. Como o produto é o que será usado **para abrir** a OS, ele precisa estar disponível desde o início.
 
-## Mudanças
+A fonte passa a ser o catálogo de produtos do UNO (`cadastro/cdq0201`), com filtros `isProduto=true&situacao=1`. A resposta já traz `codProduto`, `descComercial` e `un` — totalmente compatível com a shape `ProdutoHigienizacao` existente.
 
-**`src/components/stage1/Stage1Wizard.tsx`**
+### Mudanças
 
-1. **Remover a criação automática da OS em `selecionarCliente`**:
-   - Tirar a chamada `void ensureOsCriada(c)` ao confirmar o cliente.
-   - `selecionarCliente` apenas grava o cliente no checklist e fecha o picker.
+**1. `src/lib/uno/produtos-higienizacao.ts`** — adicionar nova função `listarProdutosCatalogo`:
+- Endpoint: `GET cadastro/cdq0201?isProduto=true&situacao=1&requiresCounts=true&page={n}&size={size}`
+- Reaproveita `PageResponse<ProdutoHigienizacaoUno>` e `mapProduto` (os campos `codProduto`, `descComercial`, `un` já casam com o JSON de exemplo).
+- Retorna `ProdutosPage` no mesmo formato de `listarProdutosHigienizacao`.
+- Default `size: 100` para já trazer um lote utilizável no combo (paginação completa pode vir depois se necessário).
+- Mantém suporte ao mock: se `isMockOn()`, delega para `mockListarProdutosHigienizacao` (reaproveita o mock existente — mesma shape).
 
-2. **Centralizar a criação no `handleAdvance`**:
-   - `handleAdvance` continua chamando `ensureOsCriada(cliente)` antes de avançar, usando os dados atuais do checklist (cliente, motorista, celular).
-   - É o único ponto que dispara `criarOS`.
+Manter `listarProdutosHigienizacao` e `listarProdutosReposicao` intocadas (ainda usadas por `ProdutoHigienizacaoSearchDialog` e outras telas).
 
-3. **Combo "Produto de higienização"**:
-   - Como a OS só existe após "Abrir OS", o combo fica desabilitado durante o preenchimento, com placeholder "Disponível após abrir a OS".
-   - Removido o `useEffect` de mount que carregava produtos (não há `codOsErp` ainda na Etapa 1 antes do clique).
-   - **Consequência:** o campo `produto_higienizacao` deixa de ser obrigatório para habilitar o botão "Abrir Ordem de Serviço". Será preenchido na Etapa 2 (ou em um passo D pós-criação, se preferir — ver pergunta abaixo).
-   - Remover `produto_higienizacao` de `requiredFinal`.
+**2. `src/components/stage1/Stage1Wizard.tsx`**:
+- Trocar import de `listarProdutosReposicao` por `listarProdutosCatalogo`.
+- `carregarProdutos()`: sem parâmetros, chama `listarProdutosCatalogo({ page: 0, size: 100 })` e seta `resp.items`.
+- `useEffect`: rodar uma única vez no mount (`[]`), sem depender de `truck.codOsErp` / `truck.codAtendimentoErp`. Continua respeitando `produtos.length === 0` como guard.
+- Placeholder do Select: trocar `"Disponível após abrir a OS"` por `"Nenhum produto encontrado"` (fallback para lista vazia/erro). Mantém `"Carregando produtos..."` e `"Selecione um produto"`.
+- Atualizar o comentário acima do estado de produtos para refletir que vem do catálogo, não do endpoint de reposição da OS.
 
-4. **Passo B (Cliente) — bloquear troca após OS criada**:
-   - Esconder o botão **"Trocar"** quando `truck.codOsErp` existir.
-   - Exibir texto discreto: *"OS já aberta no ERP — cliente não pode mais ser alterado."*
-   - Bloquear também a abertura do `pickerOpen` nesse estado.
-
-## Ponto a confirmar
-
-O combo "Produto de higienização" só funciona depois da OS aberta. Hoje ele está no mesmo Passo C dos demais dados. Posso:
-- **(a)** Deixá-lo desabilitado no Passo C com aviso, e o usuário preenche na Etapa 2 (mais simples — recomendado).
-- **(b)** Criar um Passo D que só aparece após a OS ser aberta, ainda dentro da Etapa 1, para selecionar o produto.
-
-Assumindo **(a)** por padrão.
-
-## Fora do escopo
-
-- Endpoint de atualização de cliente em OS existente.
-- Cancelamento/reabertura de OS.
-- Etapas 2+.
+Nada mais muda: validação obrigatória (`produto_higienizar`), bloqueio de troca de cliente após OS, e criação da OS apenas no clique "Abrir Ordem de Serviço" continuam como estão.
