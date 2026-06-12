@@ -22,7 +22,7 @@ import { buscarUltimoClientePorCodItem } from "@/lib/uno/os";
 import { criarOS } from "@/lib/uno/os-create";
 import { ClientePicker } from "./ClientePicker";
 import {
-  listarProdutosReposicao,
+  listarProdutosCatalogo,
   type ProdutoHigienizacao,
 } from "@/lib/uno/produtos-higienizacao";
 
@@ -160,17 +160,18 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
 
   const [creating, setCreating] = useState(false);
 
-  // Lista de produtos de higienização vinda do endpoint de reposição da OS.
+  // Lista de produtos de higienização vinda do catálogo geral do UNO (cdq0201).
+  // Disponível desde a abertura da etapa — não depende da OS existir.
   const [produtos, setProdutos] = useState<ProdutoHigienizacao[]>([]);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
   const [produtosErro, setProdutosErro] = useState<string | null>(null);
 
-  const carregarProdutos = async (codOs: number, codAtendimento: number) => {
+  const carregarProdutos = async () => {
     setLoadingProdutos(true);
     setProdutosErro(null);
     try {
-      const list = await listarProdutosReposicao(codOs, codAtendimento);
-      setProdutos(list);
+      const resp = await listarProdutosCatalogo({ page: 0, size: 100 });
+      setProdutos(resp.items);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       setProdutosErro(msg);
@@ -179,14 +180,13 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     }
   };
 
-  // O combo de produtos só carrega depois que a OS é aberta no ERP
-  // (a criação só acontece ao clicar em "Abrir Ordem de Serviço").
+  // Carrega o catálogo de produtos uma única vez, ao montar a etapa.
   useEffect(() => {
-    if (truck.codOsErp && truck.codAtendimentoErp && produtos.length === 0) {
-      void carregarProdutos(truck.codOsErp, truck.codAtendimentoErp);
+    if (produtos.length === 0) {
+      void carregarProdutos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [truck.codOsErp, truck.codAtendimentoErp]);
+  }, []);
 
   // Cria a OS no ERP (se ainda não existe) assim que o cliente é confirmado.
   const ensureOsCriada = async (cliente: Cliente) => {
@@ -212,9 +212,6 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
         codOsErp: Number.isFinite(codOsNum) ? codOsNum : undefined,
         codAtendimentoErp: codAt,
       });
-      if (Number.isFinite(codOsNum)) {
-        void carregarProdutos(codOsNum, codAt);
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast.error(`Falha ao abrir OS no UNO: ${msg}`);
@@ -420,7 +417,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                       loadingProdutos
                         ? "Carregando produtos..."
                         : produtos.length === 0
-                          ? "Disponível após abrir a OS"
+                          ? "Nenhum produto encontrado"
                           : "Selecione um produto"
                     }
                   />

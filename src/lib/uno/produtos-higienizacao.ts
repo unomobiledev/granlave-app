@@ -74,6 +74,30 @@ export async function listarProdutosHigienizacao(
   };
 }
 
+/**
+ * Lista produtos do catálogo geral do UNO (filtrando apenas produtos ativos).
+ * Usado no combo "Produto de higienização" da Etapa 1, antes da OS existir.
+ * Endpoint UNO: GET cadastro/cdq0201?isProduto=true&situacao=1&requiresCounts=true&page={n}&size={size}
+ */
+export async function listarProdutosCatalogo(
+  opts: { page?: number; size?: number } = {},
+): Promise<ProdutosPage> {
+  if (isMockOn()) return mockListarProdutosHigienizacao(opts);
+  const page = opts.page ?? 0;
+  const size = opts.size ?? 100;
+  const resp = await unoGet<PageResponse<ProdutoHigienizacaoUno>>(
+    `cadastro/cdq0201?isProduto=true&situacao=1&requiresCounts=true&page=${page}&size=${size}`,
+  );
+  const raw = resp.content ?? [];
+  return {
+    items: raw.map(mapProduto),
+    raw,
+    page: resp.number ?? page,
+    totalPages: resp.totalPages ?? 1,
+    totalElements: resp.totalElements ?? raw.length,
+  };
+}
+
 /** Shape bruto retornado pelo endpoint de reposição da OS. */
 export type ReposicaoItemUno = {
   produto?: {
