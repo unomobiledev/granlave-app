@@ -398,7 +398,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
               onChange={(v) => setItem("sistema_higienizacao", v)}
               options={["Vapor", "Água quente"]}
             />
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Produto de higienização</Label>
               <Select
                 value={getStr(state, "produto_higienizacao_id")}
@@ -434,8 +434,24 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                 <p className="text-xs text-destructive">{produtosErro}</p>
               )}
             </div>
-            <Field label="Registro Anvisa" id="anvisa" value={getStr(state, "anvisa")} onChange={(v) => setItem("anvisa", v)} />
-            <Field label="Nº do lote" id="lote" value={getStr(state, "lote")} onChange={(v) => setItem("lote", v)} />
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Registro Anvisa / Nº do lote</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="anvisa"
+                  value={getStr(state, "anvisa")}
+                  onChange={(e) => setItem("anvisa", e.target.value)}
+                  placeholder="Anvisa"
+                />
+                <span className="text-muted-foreground">/</span>
+                <Input
+                  id="lote"
+                  value={getStr(state, "lote")}
+                  onChange={(e) => setItem("lote", e.target.value)}
+                  placeholder="Lote"
+                />
+              </div>
+            </div>
             <Field label="Posição na fila" id="posicao_fila" value={getStr(state, "posicao_fila")} onChange={(v) => setItem("posicao_fila", v)} />
           </div>
         </StepCard>
