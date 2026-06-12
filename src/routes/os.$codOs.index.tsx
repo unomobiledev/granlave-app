@@ -8,6 +8,7 @@ import { osDetalheQueryOptions } from "./os.$codOs";
 import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
 import { getChecklistIdForStatus } from "@/lib/uno/status-checklist-map";
 import { buildEtapas, type EtapaTimeline } from "@/lib/uno/os-etapas";
+import { formatSituacaoLabel } from "@/lib/uno/os-situacao-label";
 import { ChecklistItens } from "@/components/os/ChecklistItens";
 import { useTrucksStore } from "@/store/trucks";
 import type { OSDetalhe } from "@/lib/uno/os-detalhe";
