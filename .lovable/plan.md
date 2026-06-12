@@ -1,35 +1,58 @@
-# Cards "Veículos em atendimento" — 2 por linha + layout horizontal
+## Objetivo
 
-## Mudanças em `src/routes/index.tsx`
+Permitir avançar o `codStatus` da OS no UNO ERP a partir das telas de etapa:
+- **Etapa 2 (Fila):** botão "Liberar para Higienização" (única ação).
+- **Etapas 3+ (com checklist):** o botão "Avançar" passa a chamar o UNO (substitui o avanço local).
+- **Finalização antecipada:** usa o mesmo endpoint passando `codStatus=6` (Concluída).
 
-### Grid (linha 101)
-- `sm:grid-cols-2 xl:grid-cols-4` → `sm:grid-cols-2` (fica em 2 colunas em todos os breakpoints).
+## Endpoint UNO
 
-### `AtendimentoCard` (linhas 255–308)
-Reorganizar para layout horizontal mais compacto e largo, aproveitando o espaço extra para mostrar `placa` (campo já disponível em `OSCardData` mas não exibido hoje).
-
-Layout proposto (uma linha, três blocos):
 ```
-[ícone 12x12]  [OS · Cliente · Responsável]   |   [Placa · Etapa · min]
+PUT servico/osk0001/{codOs}/{codAtendimento}?codStatus={novoCodStatus}
 ```
+Sem body. O novo `codStatus` é o código da próxima situação cadastrada
+(ou `6` para encerramento direto via finalização antecipada).
 
-Detalhes:
-- Reduzir padding do card: `p-6` → `p-4`.
-- Ícone do caminhão: `h-14 w-14` → `h-12 w-12`; ícone interno `h-7 w-7` → `h-6 w-6`.
-- Remover o bloco inferior destacado (`mt-5 rounded-lg border bg-background/60 p-4`) — mover seu conteúdo (status + tempo + data) para a coluna direita, sem caixa interna, para deixar o card mais "fino" (menor altura).
-- Coluna esquerda (flex-1):
-  - `OS-xxxx` (mantém estilo atual)
-  - Nome do cliente (`text-base font-semibold`, truncate)
-  - Responsável com ícone `User` (se houver)
-- Separador vertical sutil (`border-l border-primary/20`) entre as colunas em ≥ sm.
-- Coluna direita (shrink-0, ~40% da largura ou min-w fixo):
-  - **Placa** com ícone (novo — usar ícone `Hash` ou texto "Placa"): `font-mono text-sm font-semibold`.
-  - Badge da etapa/status (`descStatus` ou `Etapa X de N`) — mesmo estilo atual.
-  - Tempo (`Clock` + `Xmin`) e data comprometida (`Calendar` + data) em linha única `text-[11px] text-muted-foreground`.
-- `ChevronRight` continua na ponta direita, alinhado verticalmente ao centro.
+## Mudanças
 
-Resultado: card visivelmente mais largo, ~30% mais baixo, mostrando placa que antes não aparecia.
+### 1. Novo módulo `src/lib/uno/os-status.ts`
+- `avancarStatusOS({ codOs, codAtendimento, novoCodStatus })` usando `unoPut` do `client.ts`.
+- Comentário-cabeçalho com o CURL canônico (padrão dos outros arquivos `lib/uno/*`).
+- Suporte a mock (no-op com delay) quando `isMockOn()`.
+- Mesma função serve para avanço sequencial **e** para finalização antecipada
+  (basta passar `novoCodStatus: 6`).
 
-## Sem mudanças
-- `OSCardData` e mapeamento (placa já existe).
-- Demais cards (`QueueCard`, `ConcluidoCard`).
+### 2. `src/routes/os.$codOs.etapa.$codSituacao.tsx`
+- Calcular a **próxima situação** a partir da lista ordenada por `codigo`
+  (primeira com `codigo > codigo atual`).
+- `useMutation` chamando `avancarStatusOS`; em `onSuccess` invalidar
+  `["uno","os","detalhe", codOs, codAtend]` e a key de listagem da home, e
+  navegar de volta para `/os/$codOs`.
+- **Etapa 2 (`isFila`):** substituir "Sem ações nesta etapa." por um botão
+  grande **"Liberar para Higienização"** (rótulo usa `descAbrev`/`descricao`
+  da próxima situação). Loading + toast de erro.
+- **Etapas com checklist (codStatus ≥ 3):** adicionar abaixo do
+  `<ChecklistItens>` um botão **"Avançar para {próxima etapa}"**, habilitado
+  apenas quando checklist completo (via callback `onProgressChange` em
+  `ChecklistItens`).
+- **Finalização antecipada (etapas 2–5):** botão secundário
+  **"Finalizar serviço"** (estilo âmbar, como hoje no `/etapa/...`) que abre o
+  `FinalizarAntecipadoDialog` existente; ao confirmar, chama
+  `avancarStatusOS({ novoCodStatus: 6 })`, invalida as mesmas keys e navega
+  para `/os/$codOs`. Motivo/justificativa ficam só no UI (UNO ainda não
+  recebe esses campos via esse endpoint — TODO documentado).
+- Última etapa (sem próxima): ocultar avanço; manter finalização antecipada
+  oculta quando já estiver em 6.
+
+### 3. `src/components/os/ChecklistItens.tsx`
+- Prop `onProgressChange?(done: number, total: number): void`, disparada em
+  `useEffect` quando as respostas mudarem. Sem mudança visual.
+
+### 4. Invalidações
+- `["uno","os","detalhe", codOs, codAtend]` — reflete novo `codStatus` no
+  header/etapas.
+- Key da listagem da home (manter a existente).
+
+## Fora do escopo
+- Rota mock `/etapa/$stageId/$truckId` continua usando o store local.
+- Sem mudanças nos cards da home.
