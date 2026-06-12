@@ -212,9 +212,6 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
         codOsErp: Number.isFinite(codOsNum) ? codOsNum : undefined,
         codAtendimentoErp: codAt,
       });
-      if (Number.isFinite(codOsNum)) {
-        void carregarProdutos(codOsNum, codAt);
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast.error(`Falha ao abrir OS no UNO: ${msg}`);
