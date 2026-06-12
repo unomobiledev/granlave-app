@@ -53,7 +53,14 @@ export async function unoFetch<T = unknown>(
   }
 
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // Algumas rotas do UNO retornam 200 com corpo vazio ou texto puro.
+    return undefined as T;
+  }
 }
 
 export const unoGet = <T = unknown>(path: string, init?: RequestInit) =>
