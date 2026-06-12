@@ -305,10 +305,17 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                 <div className="text-xs text-muted-foreground">
                   {lookupState.cliente.nomeFantasia} · {lookupState.cliente.cnpj}
                 </div>
+                {truck.codOsErp && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    OS já aberta no ERP — cliente não pode mais ser alterado.
+                  </div>
+                )}
               </div>
-              <Button variant="ghost" size="sm" onClick={limparCliente} className="gap-1">
-                <Pencil className="h-3 w-3" /> Trocar
-              </Button>
+              {!truck.codOsErp && (
+                <Button variant="ghost" size="sm" onClick={limparCliente} className="gap-1">
+                  <Pencil className="h-3 w-3" /> Trocar
+                </Button>
+              )}
             </Card>
           ) : pickerOpen || lookupState.status === "notfound" ? (
             <div className="space-y-2">
@@ -412,7 +419,7 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
                       loadingProdutos
                         ? "Carregando produtos..."
                         : produtos.length === 0
-                          ? "Aguardando abertura da OS..."
+                          ? "Disponível após abrir a OS"
                           : "Selecione um produto"
                     }
                   />
