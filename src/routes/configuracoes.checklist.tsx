@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { listarSituacoesOS } from "@/lib/uno/os-situacoes";
 import { listarModelosChecklist } from "@/lib/uno/checklist-modelos";
+import { formatSituacaoLabel } from "@/lib/uno/os-situacao-label";
 import {
   DEFAULT_STATUS_CHECKLIST_MAP,
   useStatusChecklistMap,
@@ -103,7 +104,7 @@ function Editor() {
                 <tr key={s.codigo} className="border-t border-neutral-200">
                   <td className="px-3 py-2 font-mono text-xs">{s.codStatus}</td>
                   <td className="px-3 py-2">
-                    {s.descricao ?? s.descAbrev ?? `Etapa ${s.codigo}`}
+                    {formatSituacaoLabel(s)}
                   </td>
                   <td className="px-3 py-2">
                     <Select
