@@ -86,6 +86,16 @@ export async function buscarUltimoClientePorPlaca(placa: string): Promise<Client
 }
 
 /**
+ * Resolve uma placa para o `codItem` correspondente no UNO.
+ * TODO(UNO): substituir mock pela chamada real quando o endpoint estiver disponível.
+ * Por ora, devolve sempre `1` para qualquer placa não vazia.
+ */
+export async function buscarCodItemPorPlaca(placa: string): Promise<number | null> {
+  if (!placa.trim()) return null;
+  return 1;
+}
+
+/**
  * Cadastra um novo cliente.
  * TODO(UNO): substituir mock pela chamada real.
  * Endpoint sugerido: POST /cliente { nomeFantasia, razaoSocial, cnpj }

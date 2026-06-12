@@ -6,6 +6,7 @@ import {
 import { OS_STATUS, OS_COD_STATUS, type OSStatus } from "./os.types";
 import { DEV_RESTRICT_OS_STATUS_1_6, DEV_OS_STATUS_ALLOWED } from "./dev-flags";
 import { isMockOn } from "./mock-mode";
+import type { Cliente } from "./clientes";
 
 export { OS_STATUS, type OSStatus };
 
@@ -95,6 +96,45 @@ export function listarOSsEmAtendimento(limit = 50) {
 
 export function listarOSsConcluidas(limit = 8) {
   return listarOSsPorStatus(OS_STATUS.CONCLUIDO, { limit });
+}
+
+/**
+ * Busca o cliente associado à última OS de um determinado `codItem`.
+ * Endpoint: GET servico/osw0001?codItem={codItem}
+ * Retorna o cliente do primeiro item de `content`, ou `null` se não houver.
+ */
+export async function buscarUltimoClientePorCodItem(
+  codItem: number | string,
+): Promise<Cliente | null> {
+  if (isMockOn()) {
+    if (String(codItem) === "1") {
+      return {
+        id: "1",
+        razaoSocial: "UNO SOLUCOES INTEGRADAS LTDA",
+        nomeFantasia: "UNO SOLUCOES INTEGRADAS",
+        cnpj: "",
+      };
+    }
+    return null;
+  }
+  const resp = await unoGet<PageResponse<Record<string, unknown>>>(
+    `servico/osw0001?codItem=${encodeURIComponent(String(codItem))}`,
+  );
+  const first = resp.content?.[0];
+  if (!first) return null;
+  const codCliente = first.codCliente;
+  const nomeCliente =
+    (first.nomeCliente as string | undefined) ??
+    ((first.cliente as { nome?: string; razaoSocial?: string } | undefined)?.nome) ??
+    ((first.cliente as { nome?: string; razaoSocial?: string } | undefined)?.razaoSocial) ??
+    "—";
+  if (codCliente == null) return null;
+  return {
+    id: String(codCliente),
+    razaoSocial: nomeCliente,
+    nomeFantasia: nomeCliente,
+    cnpj: typeof first.cnpj === "string" ? first.cnpj : "",
+  };
 }
 
 /** Shape normalizado consumido pelos cards da home. */
