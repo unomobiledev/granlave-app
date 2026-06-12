@@ -19,6 +19,8 @@ export type Truck = {
   os?: string;
   /** Código numérico da OS no ERP UNO, quando o truck foi adotado do ERP. */
   codOsErp?: number;
+  /** Código de atendimento da OS no ERP UNO (necessário para buscar detalhe). */
+  codAtendimentoErp?: number;
   placa: string;
   cliente: string;
   motorista: string;
@@ -37,7 +39,15 @@ type State = {
   addTruck: (data: { placa: string; cliente: string; motorista: string; os?: string }) => void;
   createDraftTruck: () => string;
   getOrAdoptTruckForOS: (osDetalhe: OSDetalhe) => string;
-  updateTruck: (truckId: string, patch: Partial<Pick<Truck, "placa" | "cliente" | "motorista" | "os">>) => void;
+  updateTruck: (
+    truckId: string,
+    patch: Partial<
+      Pick<
+        Truck,
+        "placa" | "cliente" | "motorista" | "os" | "codOsErp" | "codAtendimentoErp"
+      >
+    >,
+  ) => void;
   setChecklistItem: (truckId: string, stageId: number, itemId: string, value: ChecklistValue) => void;
   advanceStage: (truckId: string) => void;
   finalizarAntecipado: (
