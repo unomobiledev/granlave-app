@@ -101,8 +101,9 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     try {
       const codItem = await buscarCodItemPorPlaca(placa.trim());
       const c = codItem != null ? await buscarUltimoClientePorCodItem(codItem) : null;
-      if (c) setLookupState({ status: "found", cliente: c });
-      else {
+      if (c) {
+        selecionarCliente(c);
+      } else {
         setLookupState({ status: "notfound" });
         setPickerOpen(true);
       }
