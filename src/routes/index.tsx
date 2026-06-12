@@ -274,7 +274,7 @@ function AtendimentoCard({ os }: { os: OSCardData }) {
               <div className="font-mono text-sm font-semibold uppercase tracking-wider text-primary">
                 {os.os}
               </div>
-              <div className="truncate text-lg font-semibold text-foreground">
+              <div className="truncate text-base font-semibold text-foreground">
                 {os.cliente}
               </div>
               {os.responsavel && (
