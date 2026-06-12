@@ -122,17 +122,26 @@ export async function buscarUltimoClientePorCodItem(
   );
   const first = resp.content?.[0];
   if (!first) return null;
-  const codCliente = first.codCliente;
-  const nomeCliente =
+  const contratante = first.clienteContratante as
+    | { codCliente?: number | string; nomeCliente?: string; razaoSocial?: string }
+    | undefined;
+  const codCliente = contratante?.codCliente ?? first.codCliente;
+  const razaoSocial =
+    contratante?.razaoSocial ??
+    contratante?.nomeCliente ??
     (first.nomeCliente as string | undefined) ??
     ((first.cliente as { nome?: string; razaoSocial?: string } | undefined)?.nome) ??
     ((first.cliente as { nome?: string; razaoSocial?: string } | undefined)?.razaoSocial) ??
     "—";
+  const nomeFantasia =
+    contratante?.nomeCliente ??
+    (first.nomeCliente as string | undefined) ??
+    razaoSocial;
   if (codCliente == null) return null;
   return {
     id: String(codCliente),
-    razaoSocial: nomeCliente,
-    nomeFantasia: nomeCliente,
+    razaoSocial,
+    nomeFantasia,
     cnpj: typeof first.cnpj === "string" ? first.cnpj : "",
   };
 }
