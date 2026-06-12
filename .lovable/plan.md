@@ -1,35 +1,41 @@
-## Ajustes Etapa 1 - Recepção
+## Objetivo
 
-### 1. Produto de higienização → combo simples (carregado da API)
+1. Criar a OS no ERP **somente** quando o usuário clicar em **"Abrir Ordem de Serviço"** (botão final da Etapa 1) — nunca antes.
+2. Permitir trocar o cliente livremente enquanto a OS ainda não foi aberta; bloquear a troca depois que `truck.codOsErp` existir.
 
-**Nova função em `src/lib/uno/produtos-higienizacao.ts`**
-- `listarProdutosReposicao(codOs, codAtendimento)` → `GET servico/osw0001/{codOs}/{codAtendimento}/reposicao`.
-- Resposta: array de itens `{ produto: { codigo, descricaoComercial, indServico }, ... }`.
-- Mapear para `ProdutoHigienizacao`: `id`/`codProduto` = `produto.codigo`, `descComercial` = `produto.descricaoComercial`, `un` = "".
-- Adicionar mock equivalente em `produtos-higienizacao.mock.ts` (1-2 itens fixos).
+## Mudanças
 
 **`src/components/stage1/Stage1Wizard.tsx`**
-- Remover `ProdutoHigienizacaoPicker`.
-- Substituir por `<Select>` (shadcn) que lista os produtos retornados, exibindo `descricaoComercial`.
-- Carregar via `useEffect` chamando `listarProdutosReposicao(codOs, codAtendimento)` quando `truck.codOsErp` e `truck.codAtendimentoErp` existirem.
-- Estado local: `produtos`, `loadingProdutos`, `produtosErro`.
-- Ao selecionar, gravar `produto_higienizacao` (descricaoComercial) e `produto_higienizacao_id` (codigo) no checklist.
 
-**Ponto a confirmar:** Hoje a OS só é criada no `handleAdvance` (fim da Etapa 1), então `codOs`/`codAtendimento` ainda não existem quando o usuário precisa preencher o combo. Opções:
-- (a) Criar a OS mais cedo (ao confirmar o cliente) e então carregar o combo.
-- (b) Usar um endpoint/lista genérica (ex.: `osw0008`) só para esse combo e, depois da OS criada, manter a referência.
-- (c) Confirmar valores fixos default para o GET.
+1. **Remover a criação automática da OS em `selecionarCliente`**:
+   - Tirar a chamada `void ensureOsCriada(c)` ao confirmar o cliente.
+   - `selecionarCliente` apenas grava o cliente no checklist e fecha o picker.
 
-Vou seguir a opção (a) por default: mover `criarOS` para logo após o cliente ser confirmado (gera `codOsErp`/`codAtendimentoErp`), e o `handleAdvance` final só avança de etapa. Caso prefira outra, ajusto.
+2. **Centralizar a criação no `handleAdvance`**:
+   - `handleAdvance` continua chamando `ensureOsCriada(cliente)` antes de avançar, usando os dados atuais do checklist (cliente, motorista, celular).
+   - É o único ponto que dispara `criarOS`.
 
-### 2. DDD + Telefone → campo único "Celular" com máscara
+3. **Combo "Produto de higienização"**:
+   - Como a OS só existe após "Abrir OS", o combo fica desabilitado durante o preenchimento, com placeholder "Disponível após abrir a OS".
+   - Removido o `useEffect` de mount que carregava produtos (não há `codOsErp` ainda na Etapa 1 antes do clique).
+   - **Consequência:** o campo `produto_higienizacao` deixa de ser obrigatório para habilitar o botão "Abrir Ordem de Serviço". Será preenchido na Etapa 2 (ou em um passo D pós-criação, se preferir — ver pergunta abaixo).
+   - Remover `produto_higienizacao` de `requiredFinal`.
 
-**`src/components/stage1/Stage1Wizard.tsx`**
-- Remover os campos `ddd` e `telefone` separados.
-- Novo campo **Celular** (`celular`) com máscara `(XX) XXXXX-XXXX`:
-  - On-change: extrair dígitos (máx 11) e reformatar.
-  - Persistir formatado em `celular` e dígitos brutos em `celular_digits`.
-- Em `handleAdvance`/`criarOS`: derivar `ddd = digits.slice(0,2)`, `telefone = digits.slice(2)`, enviados apenas se houver 10 ou 11 dígitos.
+4. **Passo B (Cliente) — bloquear troca após OS criada**:
+   - Esconder o botão **"Trocar"** quando `truck.codOsErp` existir.
+   - Exibir texto discreto: *"OS já aberta no ERP — cliente não pode mais ser alterado."*
+   - Bloquear também a abertura do `pickerOpen` nesse estado.
 
-### Fora do escopo
-- Etapas 2+, busca de cliente, demais campos do passo C, remoção dos arquivos antigos `ProdutoHigienizacaoPicker/SearchDialog/NovoProdutoHigienizacaoDialog`.
+## Ponto a confirmar
+
+O combo "Produto de higienização" só funciona depois da OS aberta. Hoje ele está no mesmo Passo C dos demais dados. Posso:
+- **(a)** Deixá-lo desabilitado no Passo C com aviso, e o usuário preenche na Etapa 2 (mais simples — recomendado).
+- **(b)** Criar um Passo D que só aparece após a OS ser aberta, ainda dentro da Etapa 1, para selecionar o produto.
+
+Assumindo **(a)** por padrão.
+
+## Fora do escopo
+
+- Endpoint de atualização de cliente em OS existente.
+- Cancelamento/reabertura de OS.
+- Etapas 2+.

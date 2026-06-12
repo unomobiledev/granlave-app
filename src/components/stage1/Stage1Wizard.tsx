@@ -120,12 +120,10 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     updateTruck(truck.id, { cliente: c.razaoSocial });
     setLookupState({ status: "found", cliente: c });
     setPickerOpen(false);
-    // Cria a OS automaticamente assim que o cliente é confirmado,
-    // para que possamos carregar a lista de produtos de reposição.
-    void ensureOsCriada(c);
   };
 
   const limparCliente = () => {
+    if (truck.codOsErp) return;
     setItem("cliente_id", "");
     setItem("cliente", "");
     setItem("cliente_fantasia", "");
@@ -152,7 +150,6 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     "produto_higienizar",
     "ultima_carga",
     "sistema_higienizacao",
-    "produto_higienizacao",
     "anvisa",
     "lote",
     "posicao_fila",
@@ -181,13 +178,14 @@ export function Stage1Wizard({ truck }: { truck: Truck }) {
     }
   };
 
-  // Carrega produtos se a OS já existir ao montar.
+  // O combo de produtos só carrega depois que a OS é aberta no ERP
+  // (a criação só acontece ao clicar em "Abrir Ordem de Serviço").
   useEffect(() => {
-    if (truck.codOsErp && truck.codAtendimentoErp) {
+    if (truck.codOsErp && truck.codAtendimentoErp && produtos.length === 0) {
       void carregarProdutos(truck.codOsErp, truck.codAtendimentoErp);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [truck.codOsErp, truck.codAtendimentoErp]);
 
   // Cria a OS no ERP (se ainda não existe) assim que o cliente é confirmado.
   const ensureOsCriada = async (cliente: Cliente) => {
