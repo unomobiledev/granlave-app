@@ -212,8 +212,7 @@ function EtapaCard({
         ? Loader2
         : Circle;
 
-  const titulo =
-    situacao.descricao ?? situacao.descAbrev ?? situacao.descricaoAbreviada ?? `Etapa ${situacao.codigo}`;
+  const titulo = formatSituacaoLabel(situacao);
 
   const linkProps = osCodOs
     ? ({
